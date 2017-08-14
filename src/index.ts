@@ -112,7 +112,7 @@ export class Engine {
                 });
                 child.stdout.pipe(process.stdout);
                 child.stderr.pipe(process.stderr);
-                child.on('exit', function () {
+                child.on('exit', () => {
                     if (child != null) {
                         throw new Error('Engine crashed unexpectedly');
                     }
@@ -125,7 +125,7 @@ export class Engine {
                 child = execFile(binaryPath, ['-config=env', '-restart=true'], env);
                 child.stdout.pipe(process.stdout);
                 child.stderr.pipe(process.stderr);
-                child.on('exit', function () {
+                child.on('exit', () => {
                     if (child != null) {
                         throw new Error('Engine crashed unexpectedly')
                     }
