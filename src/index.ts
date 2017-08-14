@@ -1,3 +1,4 @@
+import { randomBytes } from 'crypto'
 import { readFileSync } from 'fs';
 import { resolve } from 'path';
 import { ChildProcess, execFile } from 'child_process'
@@ -47,6 +48,12 @@ export interface EngineConfig {
     }
 }
 
+export interface SideloadConfig {
+    engineConfig: string | EngineConfig,
+    endpoint?: string,
+    graphqlPort?: number
+}
+
 export class Engine {
     private child: ChildProcess | null;
     private endpoint: string;
@@ -55,11 +62,24 @@ export class Engine {
     private binary: string;
     private config: string | EngineConfig;
     private headerSecret: string;
-    public constructor(config: string | EngineConfig, endpoint: string, graphqlPort: number, headerSecret: string) {
-        this.endpoint = endpoint;
-        this.graphqlPort = graphqlPort;
-        this.config = config;
-        this.headerSecret = headerSecret;
+    public constructor(config: SideloadConfig) {
+        if (config.endpoint) {
+            this.endpoint = config.endpoint;
+        } else {
+            this.endpoint = '/graphql';
+        }
+        if (config.graphqlPort) {
+            this.graphqlPort = config.graphqlPort;
+        } else {
+            const port = process.env.PORT;
+            if (port) {
+                this.graphqlPort = parseInt(port, 10);
+            } else {
+                throw new Error('process.env.PORT is not set!');
+            }
+        }
+        this.config = config.engineConfig;
+        this.headerSecret = randomBytes(48).toString("hex")
         switch (process.platform) {
             case 'darwin': {
                 this.binary = 'engine-darwin64';
@@ -75,9 +95,9 @@ export class Engine {
         }
     }
     public start(callback: (err?: Error) => void) {
-        let config = this.config;
-        let endpoint = this.endpoint;
-        let graphqlPort = this.graphqlPort;
+        const config = this.config;
+        const endpoint = this.endpoint;
+        const graphqlPort = this.graphqlPort;
         getPortPromise({
             host: '127.0.0.1'
         }).then((port) => {
@@ -86,7 +106,7 @@ export class Engine {
 
             let child = this.child;
             if (typeof config === 'string') {
-                let env = Object.assign({ 'ENGINE_CONFIG': port + ',' + endpoint + ',' + graphqlPort + ',' + this.headerSecret }, process.env);
+                const env = Object.assign({ 'ENGINE_CONFIG': port + ',' + endpoint + ',' + graphqlPort + ',' + this.headerSecret }, process.env);
                 child = execFile(binaryPath, ['-config=' + config, '-sload=true', '-restart=true'], { 'env': env }, (err: Error) => {
                     if (err) console.error(err);
                 });
@@ -98,10 +118,10 @@ export class Engine {
                     }
                 });
             } else {
-                let sideloadConfig = JSON.parse(JSON.stringify(config));
+                const sideloadConfig = JSON.parse(JSON.stringify(config));
                 sideloadConfig.frontends = [{ 'host': '127.0.0.1', 'endpoint': endpoint, 'port': port }];
                 sideloadConfig.origins = [{ url: 'http://127.0.0.1:' + graphqlPort + endpoint, headerSecret: this.headerSecret }];
-                let env = { 'env': Object.assign({ 'ENGINE_CONFIG': JSON.stringify(sideloadConfig) }, process.env) };
+                const env = { 'env': Object.assign({ 'ENGINE_CONFIG': JSON.stringify(sideloadConfig) }, process.env) };
                 child = execFile(binaryPath, ['-config=env', '-restart=true'], env);
                 child.stdout.pipe(process.stdout);
                 child.stderr.pipe(process.stderr);
@@ -129,7 +149,7 @@ export class Engine {
         if (this.child == null) {
             throw new Error('No engine instance running...');
         }
-        let childRef = this.child;
+        const childRef = this.child;
         this.child = null;
         childRef.kill();
     }
