@@ -94,11 +94,11 @@ export class Engine {
             }
         }
     }
-    public start(callback: (err?: Error) => void) {
+    public start(): Promise<any> {
         const config = this.config;
         const endpoint = this.endpoint;
         const graphqlPort = this.graphqlPort;
-        getPortPromise({
+        return getPortPromise({
             host: '127.0.0.1'
         }).then((port) => {
             this.enginePort = port;
@@ -131,9 +131,6 @@ export class Engine {
                     }
                 });
             }
-            callback();
-        }).catch((err) => {
-            callback(err);
         });
     }
 
