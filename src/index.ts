@@ -82,11 +82,15 @@ export class Engine {
         this.headerSecret = randomBytes(48).toString("hex")
         switch (process.platform) {
             case 'darwin': {
-                this.binary = 'engine-darwin64';
+                this.binary = 'engineproxy_darwin_amd64';
                 break;
             }
             case 'linux': {
-                this.binary = 'engine-linux64';
+                this.binary = 'engineproxy_linux_amd64';
+                break;
+            }
+            case 'win32': {
+                this.binary = 'engineproxy_windows_amd64.exe';
                 break;
             }
             default: {
