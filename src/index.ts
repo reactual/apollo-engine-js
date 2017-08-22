@@ -10,8 +10,8 @@ import { makeExpressMiddleware, makeConnectMiddleware } from './middleware'
 export type LogLevels = 'debug' | 'info' | 'warn' | 'error' | 'fatal';
 
 export interface EngineConfig {
-    reporting: {
-        apiKey: string,
+    apiKey: string,
+    reporting?: {
         endpointUrl?: string
     },
     logcfg?: {
@@ -32,9 +32,9 @@ export interface EngineConfig {
     operations?: [
         {
             signature: string,
+            perSession?: boolean,
             caches: [
                 {
-                    perSession?: boolean,
                     ttl: number,
                     store: string
                 }
@@ -42,9 +42,9 @@ export interface EngineConfig {
         }
     ],
     sessionAuth?: {
-        store: string,
         header: string,
-        tokenAuthUrl: string
+        store?: string,
+        tokenAuthUrl?: string
     }
 }
 
