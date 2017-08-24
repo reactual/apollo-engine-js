@@ -37,24 +37,8 @@ export function makeKoaMiddleware(prefix: string, uri: string, psk: string) {
 export function instrumentHapi(server: Server, prefix: string, uri: string, psk: string) {
     server.ext('onRequest', (req, reply) => {
         const path = req.url.path;
-        req.raw.req.headers['x-engine-from'];
-        if (!path || !path.startsWith(prefix)) {
-            return reply.continue();
-        }
-        else if (req.raw.req.headers['x-engine-from'] === psk) {
-            return reply.continue();
-        }
-        else {
-            const r = reply(new Promise((resolve) => {
-                req.raw.req.pipe(request(uri + prefix, (error, response, body) => {
-                    const obj = JSON.parse(JSON.stringify(response.headers));
-                    if (response.statusCode) r.code(response.statusCode);
-                    Object.keys(obj).forEach(key => {
-                        r.header(key, obj[key]);
-                    });
-                    resolve(body);
-                }));
-            }));
-        }
+        if (!path || !path.startsWith(prefix)) return reply.continue();
+        else if (req.headers['x-engine-from'] === psk) return reply.continue();
+        else req.raw.req.pipe(request(uri + prefix)).pipe(req.raw.res);
     });
 }

@@ -149,10 +149,10 @@ export class Engine {
     public koaMiddleware(): (ctx: any, next: any) => void {
         return makeKoaMiddleware(this.endpoint, 'http://127.0.0.1:' + this.enginePort, this.headerSecret);
     }
-//
-//    public instrumentHapiServer(server: any) {
-//        instrumentHapi(server, this.endpoint, 'http://127.0.0.1:' + this.enginePort, this.headerSecret);
-//    }
+
+   public instrumentHapiServer(server: any) {
+       instrumentHapi(server, this.endpoint, 'http://127.0.0.1:' + this.enginePort, this.headerSecret);
+   }
 
     public stop() {
         if (this.child == null) {
