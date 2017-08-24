@@ -97,7 +97,7 @@ export class Engine {
             }
         }
     }
-    public start(): Promise<any> {
+    public start(): Promise<number> {
         const config = this.config;
         const endpoint = this.endpoint;
         const graphqlPort = this.graphqlPort;
