@@ -1,6 +1,6 @@
 {
   "name": "apollo-engine",
-  "version": "0.2.8",
+  "version": "0.2.9",
   "description": "Sideload Apollo Engine in front of your graphql server",
   "main": "./lib/index.js",
   "types": "./lib/index.d.ts",
@@ -18,13 +18,14 @@
     "node": ">=4.0"
   },
   "dependencies": {
-    "express": "^4.15.4",
     "portfinder": "^1.0.13",
     "request": "^2.81.0"
   },
   "devDependencies": {
     "@types/express": "^4.0.36",
     "@types/graphql": "^0.9.2",
+    "@types/hapi": "^16.1.9",
+    "@types/koa": "^2.0.39",
     "@types/node": "^8.0.14",
     "@types/request": "^2.0.0",
     "typescript": "^2.4.1"

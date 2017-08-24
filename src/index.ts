@@ -5,7 +5,7 @@ import { ChildProcess, execFile } from 'child_process'
 
 import { getPortPromise } from 'portfinder'
 
-import { makeExpressMiddleware, makeConnectMiddleware } from './middleware'
+import { makeExpressMiddleware, makeConnectMiddleware, makeKoaMiddleware, instrumentHapi } from './middleware'
 
 export type LogLevels = 'debug' | 'info' | 'warn' | 'error' | 'fatal';
 
@@ -145,6 +145,14 @@ export class Engine {
     public connectMiddleware(): (req: any, res: any, next: any) => void {
         return makeConnectMiddleware(this.endpoint, 'http://127.0.0.1:' + this.enginePort, this.headerSecret);
     }
+
+    public koaMiddleware(): (ctx: any, next: any) => void {
+        return makeKoaMiddleware(this.endpoint, 'http://127.0.0.1:' + this.enginePort, this.headerSecret);
+    }
+//
+//    public instrumentHapiServer(server: any) {
+//        instrumentHapi(server, this.endpoint, 'http://127.0.0.1:' + this.enginePort, this.headerSecret);
+//    }
 
     public stop() {
         if (this.child == null) {
