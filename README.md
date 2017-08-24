@@ -23,6 +23,8 @@ To shut down engine
 ```js
 engine.stop();
 ```
+Note that in the case of loading configuration from a file, engine will periodically reload the file to check for changes. Because of this, the file option is for development purposes, as the engine process won't error fatally on an incorrect config file.
+
 The graphql server should have tracing enabled if available. If you are using Apollo Server (v1.1.0 or newer), enable the tracing: true configuration option.
 
 # Full Sideloader Configuration
