@@ -71,6 +71,9 @@ describe('hapi middleware', () => {
       await StartServer();
       url = `http://localhost:${server.info.port}/graphql`;
 
+      let port = server.info.port;
+      url = `http://localhost:${port}/graphql`;
+
       // Then start engine:
       engine = testEngine();
       engine.graphqlPort = server.info.port;
