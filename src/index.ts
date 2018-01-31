@@ -230,14 +230,16 @@ export class Engine extends EventEmitter {
 
         if (typeof childConfig.origins === 'undefined') {
             const origin = Object.assign({}, this.originParams) as OriginConfig;
-            const defaultHttpOrigin = {
-                url: 'http://127.0.0.1:' + graphqlPort + endpoint,
-                headerSecret: this.middlewareParams.psk
-            }
             if (typeof origin.http === 'undefined') {
-                origin.http = defaultHttpOrigin;
+                origin.http = {
+                    url: 'http://127.0.0.1:' + graphqlPort + endpoint,
+                    headerSecret: this.middlewareParams.psk
+                };
             } else {
-                origin.http = Object.assign({}, defaultHttpOrigin, origin.http);
+                Object.assign(origin.http, {
+                    url: 'http://127.0.0.1:' + graphqlPort + endpoint,
+                    headerSecret: this.middlewareParams.psk
+                });
             }
             childConfig.origins = [origin];
         } else {
