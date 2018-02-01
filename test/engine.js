@@ -19,7 +19,7 @@ describe('engine', () => {
   });
   afterEach(async () => {
     if (engine) {
-      if (engine.started) {
+      if (engine.running) {
         const pid = engine.child.pid;
         await engine.stop();
         assert.isFalse(isRunning(pid));
