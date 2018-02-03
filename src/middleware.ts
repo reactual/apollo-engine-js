@@ -12,20 +12,35 @@ export class MiddlewareParams {
     public dumpTraffic: boolean;
 }
 
-// Matches the strict endpoint, the endpoint followed by one forward-slash, the endpoint
-// followed by a question mark and then anything else, and the endpoint followed by one backslash
+// Matches the strict endpoint, which can be followed by a forward slash or a back slash exactly once,
+// and allows for a query string as well.
 function getEndpointRegex(endpoint: string) : RegExp {
-    return new RegExp(`^${endpoint}(\\/?$|\\?.*|\\\\)`)
+    return new RegExp(`^${endpoint}(/?|\\\\)($|\\?.*)`);
+}
+
+// If a URL has an extra slash or backslash upon arrival, strip it
+function removeExtraSlash(expectedEndpoint: string, actualUrl: string) {
+    // We know it must match the regex checked, so it starts with expectedEndpoint
+    const indexAfterEndpoint : number = expectedEndpoint.length;
+    const characterAfterEndpoint : string = actualUrl.charAt(indexAfterEndpoint);
+    if(characterAfterEndpoint === '/' || characterAfterEndpoint === '\\') {
+        return actualUrl.slice(0, indexAfterEndpoint) + actualUrl.slice(indexAfterEndpoint+1, actualUrl.length);
+    }
+    return actualUrl;
 }
 
 export function makeMicroMiddleware(params: MiddlewareParams) {
+    const endpointRegex = getEndpointRegex(params.endpoint);
     return function(fn: Function) {
         return function (req: IncomingMessage, res: ServerResponse) {
-            const { pathname } = urlParser(req.url || '');
-            if (!params.uri || pathname !== params.endpoint) return fn(req, res);
+            const requestUrl = req.url || '';
+            if (!params.uri || !endpointRegex.test(requestUrl)) return fn(req, res);
             else if (req.method !== 'GET' && req.method !== 'POST') return fn(req, res);
             else if (req.headers['x-engine-from'] === params.psk) return fn(req, res);
-            else proxyRequest(params, req, res);
+            else {
+                req.url = removeExtraSlash(params.endpoint, requestUrl);
+                proxyRequest(params, req, res);
+            }
         }
     }
 }
@@ -33,11 +48,13 @@ export function makeMicroMiddleware(params: MiddlewareParams) {
 export function makeExpressMiddleware(params: MiddlewareParams) {
     const endpointRegex = getEndpointRegex(params.endpoint);
     return function (req: Request, res: Response, next: NextFunction) {
-        if (!params.uri || !endpointRegex.test(req.originalUrl)) next();
+        if (!params.uri || !endpointRegex.test(req.originalUrl)) {
+            next();
+        }
         else if (req.method !== 'GET' && req.method !== 'POST') next();
         else if (req.headers['x-engine-from'] === params.psk) next();
         else {
-            req.url = req.originalUrl;
+            req.url = removeExtraSlash(params.endpoint, req.originalUrl);
             proxyRequest(params, req, res);
         }
     }
@@ -50,7 +67,7 @@ export function makeConnectMiddleware(params: MiddlewareParams) {
         else if (req.method !== 'GET' && req.method !== 'POST') next();
         else if (req.headers['x-engine-from'] === params.psk) next();
         else {
-            req.url = req.originalUrl;
+            req.url = removeExtraSlash(params.endpoint, req.originalUrl);
             proxyRequest(params, req, res);
         }
     }

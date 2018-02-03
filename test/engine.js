@@ -120,7 +120,7 @@ describe('engine', () => {
         await verifyEndpointSuccess(`http://localhost:${port}/graphql`, false);
         await verifyEndpointSuccess(`http://localhost:${extraPort}/graphql`, false);
         done();
-      }).listen(0)
+      }).listen(0);
     });
 
     it('can be configured in single proxy mode', async () => {
