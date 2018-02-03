@@ -63,7 +63,7 @@ describe('micro middleware', () => {
       await engine.start();
       url = `http://localhost:${engine.graphqlPort}/graphql`;
     });
-  
+
     afterEach(() => {
       engine.stop();
     });
