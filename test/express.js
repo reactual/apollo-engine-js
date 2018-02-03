@@ -10,6 +10,8 @@ const isRunning = require('is-running');
 const {schema, rootValue, verifyEndpointSuccess, verifyEndpointFailure, verifyEndpointError, verifyEndpointGet, verifyEndpointBatch} = require('./schema');
 const {testEngine} = require('./test');
 
+const acceptableEndings = ['/', '?', '?123', '\\', '/?123', '\\?'];
+
 describe('express middleware', () => {
   // Start graphql-express on a random port:
   let app, engine = null;
@@ -29,18 +31,19 @@ describe('express middleware', () => {
 
   function gqlServer(path) {
     path = path || '/graphql';
-    app.get(`${path}/ping`, (req, res) => {
-      res.json({'pong': true});
-    });
+      app.get(`${path}/ping`, (req, res) => {
+        res.json({'pong': true});
+      });
 
     app.use(path, bodyParser.json(), graphqlExpress({
-      schema,
-      rootValue,
-      tracing: true,
-      cacheControl: true,
-    }));
+        schema,
+        rootValue,
+        tracing: true,
+        cacheControl: true,
+      }));
 
-    return http.createServer(app).listen().address().port;
+    const graphQLServerPort = http.createServer(app).listen().address().port;
+    return graphQLServerPort;
   }
 
   function setupEngine(path) {
@@ -80,10 +83,11 @@ describe('express middleware', () => {
 
   describe('with engine', () => {
     // Configure engine middleware:
-    let url;
+    let url, path;
     beforeEach(() => {
       setupEngine();
-      url = `http://localhost:${engine.graphqlPort}/graphql`;
+      path = '/graphql'
+      url = `http://localhost:${engine.graphqlPort}${path}`;
     });
 
     describe('unstarted engine', () => {
@@ -110,6 +114,11 @@ describe('express middleware', () => {
       it('processes successful query', () => {
         return verifyEndpointSuccess(url, false);
       });
+      acceptableEndings.forEach(acceptableEnding => {
+        it(`using server endpoint ${acceptableEnding}`, () => {
+          return verifyEndpointSuccess(url+acceptableEnding, false);
+        })
+      })
       it('processes successful GET query', () => {
         return verifyEndpointGet(url, false);
       });
