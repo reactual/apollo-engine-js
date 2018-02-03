@@ -12,23 +12,6 @@ export class MiddlewareParams {
     public dumpTraffic: boolean;
 }
 
-// Matches the strict endpoint, which can be followed by a forward slash or a back slash exactly once,
-// and allows for a query string as well.
-function getEndpointRegex(endpoint: string) : RegExp {
-    return new RegExp(`^${endpoint}(/?|\\\\)($|\\?.*)`);
-}
-
-// If a URL has an extra slash or backslash upon arrival, strip it
-function removeExtraSlash(expectedEndpoint: string, actualUrl: string) {
-    // We know it must match the regex checked, so it starts with expectedEndpoint
-    const indexAfterEndpoint : number = expectedEndpoint.length;
-    const characterAfterEndpoint : string = actualUrl.charAt(indexAfterEndpoint);
-    if(characterAfterEndpoint === '/' || characterAfterEndpoint === '\\') {
-        return actualUrl.slice(0, indexAfterEndpoint) + actualUrl.slice(indexAfterEndpoint+1, actualUrl.length);
-    }
-    return actualUrl;
-}
-
 export function makeMicroMiddleware(params: MiddlewareParams) {
     const endpointRegex = getEndpointRegex(params.endpoint);
     return function(fn: Function) {
@@ -125,4 +108,21 @@ function proxyRequest(params: MiddlewareParams, req: IncomingMessage, res: Serve
         proxyRes.pipe(process.stdout);
     }
     proxyRes.pipe(res);
+}
+
+// Matches the strict endpoint, which can be followed by a forward slash or a back slash exactly once,
+// and allows for a query string as well.
+function getEndpointRegex(endpoint: string) : RegExp {
+    return new RegExp(`^${endpoint}(/?|\\\\)($|\\?.*)`);
+}
+
+// If a URL has an extra slash or backslash upon arrival, strip it
+function removeExtraSlash(expectedEndpoint: string, actualUrl: string) {
+    // We know it must match the regex checked, so it starts with expectedEndpoint
+    const indexAfterEndpoint : number = expectedEndpoint.length;
+    const characterAfterEndpoint : string = actualUrl.charAt(indexAfterEndpoint);
+    if(characterAfterEndpoint === '/' || characterAfterEndpoint === '\\') {
+        return actualUrl.slice(0, indexAfterEndpoint) + actualUrl.slice(indexAfterEndpoint+1, actualUrl.length);
+    }
+    return actualUrl;
 }
