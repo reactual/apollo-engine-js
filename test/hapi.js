@@ -1,99 +1,120 @@
-const hapi = require('hapi');
-const {graphqlHapi} = require('apollo-server-hapi');
+const Hapi = require('hapi');
+const {
+    graphqlHapi
+} = require('apollo-server-hapi');
 
-const {assert} = require('chai');
+const {
+    assert
+} = require('chai');
 const request = require('request-promise-native');
-const {schema, rootValue, verifyEndpointSuccess, verifyEndpointFailure, verifyEndpointError, verifyEndpointGet} = require('./schema');
-const {testEngine} = require('./test');
+const {
+    schema,
+    rootValue,
+    verifyEndpointSuccess,
+    verifyEndpointFailure,
+    verifyEndpointError,
+    verifyEndpointGet
+} = require('./schema');
+const {
+    testEngine
+} = require('./test');
 
 describe('hapi middleware', () => {
-  let server;
-  beforeEach(() => {
-    server = new hapi.Server();
-    server.connection({
-      host: 'localhost',
-      port: 0
-    });
+    let server;
 
-    server.route({
-      method: 'OPTIONS',
-      path: '/graphql',
-      handler: (req, reply) => {
-        return reply('ok');
-      }
-    });
-    server.register({
-      register: graphqlHapi,
-      options: {
-        path: '/graphql',
-        graphqlOptions: {
-          schema: schema,
-          rootValue: rootValue,
-          tracing: true
+    async function StartServer() {
+        server = new Hapi.server({
+            host: 'localhost',
+            port: 0,
+        });
+
+        await server.register({
+            plugin: graphqlHapi,
+            options: {
+                path: '/graphql',
+                graphqlOptions: {
+                    schema,
+                    rootValue,
+                    tracing: true,
+                },
+            },
+        });
+
+        server.route({
+            method: 'OPTIONS',
+            path: '/graphql',
+            handler: (req, h) => {
+                return 'ok';
+            }
+        });
+
+        try {
+            await server.start();
+        } catch (err) {
+            console.log(`Error while starting server: ${err.message}`);
         }
-      },
-    });
-  });
 
-  describe('without engine', () => {
-    let url;
-    beforeEach(async () => {
-      await server.start();
-      url = `http://localhost:${server.info.port}/graphql`;
-    });
+        console.log(`Server running at: ${server.info.uri}`);
+    }
 
-    it('processes successful query', () => {
-      return verifyEndpointSuccess(url, true);
-    });
-    it('processes successful GET query', () => {
-      return verifyEndpointGet(url, true);
-    });
-    it('processes invalid query', () => {
-      return verifyEndpointFailure(url);
-    });
-    it('processes query that errors', () => {
-      return verifyEndpointError(url);
-    });
-  });
+    describe('without engine', () => {
+        let url;
+        beforeEach(async () => {
+            await StartServer();
+            url = `http://localhost:${server.info.port}/graphql`;
+        });
 
-  describe('with engine', () => {
-    let url, engine;
-    beforeEach(async () => {
-      await server.start();
-
-      let port = server.info.port;
-      url = `http://localhost:${port}/graphql`;
-
-      // Then start engine:
-      engine = testEngine();
-      engine.graphqlPort = port;
-      engine.instrumentHapiServer(server);
-      await engine.start();
+        it('processes successful query', () => {
+            return verifyEndpointSuccess(url, true);
+        });
+        it('processes successful GET query', () => {
+            return verifyEndpointGet(url, true);
+        });
+        it('processes invalid query', () => {
+            return verifyEndpointFailure(url);
+        });
+        it('processes query that errors', () => {
+            return verifyEndpointError(url);
+        });
     });
 
-    afterEach(async () => {
-      engine.stop();
-    });
+    describe('with engine', () => {
+        let url, engine;
+        beforeEach(async () => {
+            await StartServer();
+            const port = server.info.port;
+            url = `http://127.0.0.1:${port}/graphql`;
 
-    it('processes successful query', () => {
-      return verifyEndpointSuccess(url, false);
-    });
-    it('processes successful GET query', () => {
-      return verifyEndpointGet(url, false);
-    });
-    it('processes invalid query', () => {
-      return verifyEndpointFailure(url);
-    });
-    it('processes query that errors', () => {
-      return verifyEndpointError(url);
-    });
+            // Then start engine:
+            engine = testEngine();
+            engine.graphqlPort = server.info.port;
+            engine.instrumentHapiServer(server);
+            await engine.start();
+        });
 
-    it('ignores options request', async () => {
-      let response = await request({
-        method: 'OPTIONS',
-        url
-      });
-      assert.strictEqual('ok', response);
+        afterEach(async () => {
+            engine.stop();
+        });
+
+        it('processes successful query', () => {
+            return verifyEndpointSuccess(url, false);
+        });
+        it('processes successful GET query', () => {
+            return verifyEndpointGet(url, false);
+        });
+        it('processes invalid query', () => {
+            return verifyEndpointFailure(url);
+        });
+        it('processes query that errors', () => {
+            return verifyEndpointError(url);
+        });
+
+        it('ignores options request', async () => {
+            let response = await request({
+                method: 'OPTIONS',
+                url
+            });
+            assert.strictEqual('ok', response);
+        });
     });
-  });
 });

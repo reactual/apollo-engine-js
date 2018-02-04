@@ -78,14 +78,21 @@ export function makeKoaMiddleware(params: MiddlewareParams) {
 }
 
 
-export function instrumentHapi(server: Server, params: MiddlewareParams) {
-    server.ext('onRequest', (req, reply) => {
-        if (!params.uri) return reply.continue();
+export async function instrumentHapi(server: Server, params: MiddlewareParams) {
+    server.ext('onRequest', (req, h) => {
+        if (!params.uri) return h.continue;
         const path = req.url.pathname;
-        if (!path || path !== params.endpoint) return reply.continue();
-        else if (req.method !== 'get' && req.method !== 'post') return reply.continue();
-        else if (req.headers['x-engine-from'] === params.psk) return reply.continue();
-        else proxyRequest(params, req.raw.req, req.raw.res);
+        if (!path || path !== params.endpoint) return h.continue;
+        else if (req.method !== 'get' && req.method !== 'post') return h.continue;
+        else if (req.headers['x-engine-from'] === params.psk) {
+            console.log('wow engine responded');
+            return h.continue;
+        }
+        // The error is somewhere in this step. Engine never processes the query at all
+        else {
+            proxyRequest(params, req.raw.req, req.raw.res);
+            return h.continue;
+        }
     });
 }
 
