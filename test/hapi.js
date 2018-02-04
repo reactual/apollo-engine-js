@@ -99,7 +99,7 @@ describe('hapi middleware', () => {
         it('processes successful query', () => {
             return verifyEndpointSuccess(url, false);
         });
-        it('processes successful GET query', () => {
+        it.only('processes successful GET query', () => {
             return verifyEndpointGet(url, false);
         });
         it('processes invalid query', () => {
