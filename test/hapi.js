@@ -87,7 +87,7 @@ describe('hapi middleware', () => {
 
             // Then start engine:
             engine = testEngine();
-            engine.graphqlPort = server.info.port;
+            engine.graphqlPort = port;
             engine.instrumentHapiServer(server);
             await engine.start();
         });
