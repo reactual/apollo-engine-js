@@ -67,6 +67,15 @@ export interface OriginConfig extends OriginParams {
     http?: OriginHttpConfig
 }
 
+export interface LogData {
+    proxy: any
+}
+
+export interface Logger {
+    error(data: any): void;
+    log(data: LogData): void;
+}
+
 export interface EngineConfig {
     apiKey: string,
     origins?: OriginConfig[],
@@ -128,10 +137,12 @@ export interface SideloadConfig {
     startupTimeout?: number,
     origin?: OriginParams
     frontend?: FrontendParams
+    logger?: Logger,
 }
 
 export class Engine extends EventEmitter {
     private child: ChildProcess | null;
+    private logger: Logger;
     private graphqlPort: number;
     private binary: string;
     private config: string | EngineConfig;
@@ -155,6 +166,13 @@ export class Engine extends EventEmitter {
         this.middlewareParams.dumpTraffic = config.dumpTraffic || false;
         this.originParams = config.origin || {};
         this.frontendParams = config.frontend || {};
+        // Custom logger
+        if (config.logger) {
+            this.logger = config.logger;
+        } else {
+            this.logger = console;
+        }
+
         if (config.graphqlPort) {
             this.graphqlPort = config.graphqlPort;
         } else {
@@ -197,6 +215,7 @@ export class Engine extends EventEmitter {
         let config = this.config;
         const endpoint = this.middlewareParams.endpoint;
         const graphqlPort = this.graphqlPort;
+        const logger = this.logger;
 
         if (typeof config === 'string') {
             config = JSON.parse(readFileSync(config as string, 'utf8') as string);
@@ -210,10 +229,10 @@ export class Engine extends EventEmitter {
             childConfig.logging = {}
         } else {
             if (childConfig.logging.format && childConfig.logging.format !== 'JSON') {
-                console.error(`Invalid logging format: ${childConfig.logging.format}, overridden to JSON.`);
+                logger.error(`Invalid logging format: ${childConfig.logging.format}, overridden to JSON.`);
             }
             if (childConfig.logging.destination && childConfig.logging.destination !== 'STDOUT') {
-                console.error(`Invalid logging destination: ${childConfig.logging.format}, overridden to STDOUT.`);
+                logger.error(`Invalid logging destination: ${childConfig.logging.format}, overridden to STDOUT.`);
             }
         }
         childConfig.logging.format = 'JSON';
@@ -304,13 +323,13 @@ export class Engine extends EventEmitter {
 
                 // Print log message:
                 if (!logLevelFilter || !logRecord.level || logRecord.level.match(logLevelFilter)) {
-                    console.log({proxy: logRecord});
+                    logger.log({proxy: logRecord});
                 }
             });
 
             logStream.input.on('error', () => {
                 // We received non-json output, dump it to stderr:
-                console.error(logStream.input._buffer);
+                logger.error(logStream.input._buffer);
             });
             // Connect log hooks:
             child.stdout.pipe(logStream.input);
@@ -334,10 +353,10 @@ export class Engine extends EventEmitter {
                 }
 
                 if (code != null) {
-                    console.error(`Engine crashed unexpectedly with code: ${code}`);
+                    logger.error(`Engine crashed unexpectedly with code: ${code}`);
                 }
                 if (signal != null) {
-                    console.error(`Engine was killed unexpectedly by signal: ${signal}`);
+                    logger.error(`Engine was killed unexpectedly by signal: ${signal}`);
                 }
                 spawnChild();
             });

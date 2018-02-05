@@ -5,6 +5,7 @@ const bodyParser = require('body-parser');
 const {createServer} = require('net');
 
 const {assert} = require('chai');
+const sinon = require('sinon');
 const isRunning = require('is-running');
 
 const {Engine} = require('../lib/index');
@@ -216,6 +217,26 @@ describe('engine', () => {
 
       assert.strictEqual(userSpecifiedUrl, engine.originParams.http.url);
     });
+
+    it('can be configured to use a custom default logger', async () => {
+      const errorLogger = sinon.stub();
+      const defaultLogger = sinon.spy();
+      engine = new Engine({
+        graphqlPort: 1,
+        logger: {
+          error: errorLogger,
+          log: defaultLogger
+        },
+        engineConfig: {
+          reporting: {
+            disabled: true
+          }
+        }
+      });
+
+      await engine.start();
+      assert(defaultLogger.calledWith({ proxy: sinon.match.object }));
+    });
   });
 
   describe('process', () => {
@@ -260,6 +281,25 @@ describe('engine', () => {
         assert.match(err, /timed out/);
       }
       assert.strictEqual('', engine.middlewareParams.uri);
+    });
+
+    it('can be configured to use a custom error logger', async () => {
+      const errorLogger = sinon.spy();
+      const defaultLogger = sinon.stub();
+      setupEngine();
+      engine.startupTimeout = 100;
+      engine.logger = {
+        error: errorLogger,
+        log: defaultLogger
+      };
+      engine.config.logging.format = 'invalid';
+
+      engine.on('error', () => sinon.stub());
+      try {
+        await engine.start();
+      } catch (err) {
+      }
+      assert(errorLogger.called);
     });
   })
 });
