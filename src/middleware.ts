@@ -97,6 +97,7 @@ function proxyRequest(params: MiddlewareParams, req: IncomingMessage, res: Serve
     const proxyRes = req.pipe(request({
         uri: params.uri + req.url,
         forever: true,
+        headers: { 'host': req.headers['host'] },
     }))
         .on('error', (err) => {
             console.error(err);
