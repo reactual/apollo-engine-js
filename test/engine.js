@@ -129,19 +129,61 @@ describe('engine', () => {
       let port = gqlServer('/graphql');
 
       engine = new Engine({
-        endpoint: '/graphql',
         engineConfig: 'test/engine.json',
         graphqlPort: port,
         frontend: {
           host: '127.0.0.1',
           port: 3000,
-          endpoint: '/graphql'
         }
       });
 
       await engine.start();
-      return verifyEndpointSuccess('http://localhost:3000/graphql', false);
+      await verifyEndpointSuccess('http://localhost:3000/graphql', false);
     });
+
+
+    it('can be configured in single proxy mode to use multiple endpoints', async () => {
+      let testPort = gqlServer('/test/graphql');
+      let defaultPort = gqlServer('/graphql');
+      engine = new Engine({
+        allowFullConfiguration: true,
+        engineConfig: {
+          apiKey: 'faked',
+          origins: [
+            {
+              name: 'defaultOrigin',
+              http: {
+                url: `http://127.0.0.1:${defaultPort}/graphql`
+              }
+            },
+            {
+              name: 'testOrigin',
+              http: {
+                url: `http://127.0.0.1:${testPort}/graphql`
+              }
+            }
+          ],
+          frontends: [
+            {
+              host: '127.0.0.1',
+              port: 3000,
+              endpointMap: {
+                '/graphql' : 'defaultOrigin',
+                '/test/graphql' : 'testOrigin',
+              }
+            }
+          ],
+          reporting: {
+            disabled: true,
+            noTraceVariables: true
+          }
+        }
+      });
+
+      await engine.start()
+      await verifyEndpointSuccess('http://localhost:3000/graphql', false);
+      await verifyEndpointSuccess('http://localhost:3000/test/graphql', false);
+    })
 
     it('sets default startup timeout', () => {
       engine = new Engine({
@@ -179,8 +221,8 @@ describe('engine', () => {
 
     it('accepts configuration of overridden headers', async () => {
       const overrideRequestHeaders = {
-        "Host": "example.com",
-        "X-Does-Not-Exist": "huehue",
+        'Host': 'example.com',
+        'X-Does-Not-Exist': 'huehue',
       };
       engine = new Engine({
         graphqlPort: 1,

@@ -61,6 +61,7 @@ This is the minimum necessary information in the engine configuration object to 
   "dumpTraffic": false,             // If true, HTTP requests and responses will be dumped to stdout. Should only be used if debugging an issue.
   "startupTimeout": 5000,           // If >0, .start() will throw if the proxy binary does not finish startup within the given number of milliseconds.
                                     // Defaults to 5000ms if not set.
+  "allowFullConfiguration": true    // For use with single proxy mode. Set this to true this if configuring frontends and origins directly in the engineConfig.
 
   // Shortcuts to "origins" in EngineConfig
   "origin": {

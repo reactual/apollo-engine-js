@@ -37,7 +37,7 @@ export interface FrontendParams {
 // All configuration of "frontend" (including fields managed by apollo-engine-js)
 export interface FrontendConfig extends FrontendParams {
     host: string,
-    endpoint: string,
+    endpoints: string[],
     port: number,
 }
 
@@ -129,6 +129,7 @@ export interface EngineConfig {
 export interface SideloadConfig {
     engineConfig: string | EngineConfig,
     endpoint?: string,
+    allowFullConfiguration?: boolean,
     graphqlPort?: number,
     // Should all requests/responses to the proxy be written to stdout?
     dumpTraffic?: boolean,
@@ -143,7 +144,8 @@ export interface SideloadConfig {
 export class Engine extends EventEmitter {
     private child: ChildProcess | null;
     private logger: Logger;
-    private graphqlPort: number;
+    private graphqlPort?: number;
+    private allowFullConfiguration: boolean;
     private binary: string;
     private config: string | EngineConfig;
     private middlewareParams: MiddlewareParams;
@@ -164,6 +166,7 @@ export class Engine extends EventEmitter {
         this.middlewareParams.endpoint = config.endpoint || '/graphql';
         this.middlewareParams.psk = randomBytes(48).toString("hex");
         this.middlewareParams.dumpTraffic = config.dumpTraffic || false;
+        this.allowFullConfiguration = config.allowFullConfiguration || false;
         this.originParams = config.origin || {};
         this.frontendParams = config.frontend || {};
         // Custom logger
@@ -179,7 +182,7 @@ export class Engine extends EventEmitter {
             const port: any = process.env.PORT;
             if (isFinite(port)) {
                 this.graphqlPort = parseInt(port, 10);
-            } else {
+            } else if(!this.allowFullConfiguration) {
                 throw new Error(`Neither 'graphqlPort' nor process.env.PORT is set. ` +
                     `In order for Apollo Engine to act as a proxy for your GraphQL server, ` +
                     `it needs to know which port your GraphQL server is listening on (this is ` +
@@ -241,13 +244,13 @@ export class Engine extends EventEmitter {
         // Inject frontend, that we will route
         const frontend = Object.assign({
             host: '127.0.0.1',
-            endpoint,
+            endpoints: [endpoint],
             port: 0,
         }, this.frontendParams);
         if (typeof childConfig.frontends === 'undefined') {
             childConfig.frontends = [frontend];
-        } else {
-            childConfig.frontends.push(frontend);
+        } else if (!this.allowFullConfiguration) {
+            childConfig.frontends.push(frontend)
         }
 
         if (typeof childConfig.origins === 'undefined') {
@@ -262,7 +265,7 @@ export class Engine extends EventEmitter {
                 origin.http = Object.assign({}, defaultHttpOrigin, origin.http);
             }
             childConfig.origins = [origin];
-        } else {
+        } else if(!this.allowFullConfiguration) {
             // Extend any existing HTTP origins with the chosen PSK:
             // (trust it to fill other fields correctly)
             childConfig.origins.forEach(origin => {
