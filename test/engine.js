@@ -3,9 +3,9 @@ const express = require('express');
 const {graphqlExpress} = require('apollo-server-express');
 const bodyParser = require('body-parser');
 const {createServer} = require('net');
+const {Writable} = require('stream');
 
 const {assert} = require('chai');
-const sinon = require('sinon');
 const isRunning = require('is-running');
 
 const {Engine} = require('../lib/index');
@@ -260,15 +260,40 @@ describe('engine', () => {
       assert.strictEqual(userSpecifiedUrl, engine.originParams.http.url);
     });
 
-    it('can be configured to use a custom default logger', async () => {
-      const errorLogger = sinon.stub();
-      const defaultLogger = sinon.spy();
+    it('can be configured to use custom stdout', async () => {
+      let written = false;
+      const proxyStdoutStream = new Writable({
+        write(chunk, encoding, callback) {
+          written = true;
+        }
+      });
       engine = new Engine({
         graphqlPort: 1,
-        logger: {
-          error: errorLogger,
-          log: defaultLogger
-        },
+        proxyStdoutStream,
+        engineConfig: {
+          reporting: {
+            disabled: true
+          },
+          logging: {
+            destination: 'STDOUT',
+          },
+        }
+      });
+
+      await engine.start();
+      assert(written);
+    });
+
+    it('can be configured to use custom stderr', async () => {
+      let written = false;
+      const proxyStderrStream = new Writable({
+        write(chunk, encoding, callback) {
+          written = true;
+        }
+      });
+      engine = new Engine({
+        graphqlPort: 1,
+        proxyStderrStream,
         engineConfig: {
           reporting: {
             disabled: true
@@ -277,7 +302,7 @@ describe('engine', () => {
       });
 
       await engine.start();
-      assert(defaultLogger.calledWith({ proxy: sinon.match.object }));
+      assert(written);
     });
   });
 
@@ -323,25 +348,6 @@ describe('engine', () => {
         assert.match(err, /timed out/);
       }
       assert.strictEqual('', engine.middlewareParams.uri);
-    });
-
-    it('can be configured to use a custom error logger', async () => {
-      const errorLogger = sinon.spy();
-      const defaultLogger = sinon.stub();
-      setupEngine();
-      engine.startupTimeout = 100;
-      engine.logger = {
-        error: errorLogger,
-        log: defaultLogger
-      };
-      engine.config.logging.format = 'invalid';
-
-      engine.on('error', () => sinon.stub());
-      try {
-        await engine.start();
-      } catch (err) {
-      }
-      assert(errorLogger.called);
     });
   })
 });
