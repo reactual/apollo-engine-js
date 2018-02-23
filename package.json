@@ -23,8 +23,7 @@
     "npm": ">=4.0"
   },
   "dependencies": {
-    "request": "^2.81.0",
-    "stream-json": "^0.5.2"
+    "request": "^2.81.0"
   },
   "optionalDependencies": {
     "apollo-engine-binary-darwin": "0.2018.2-84-g7a295e631",
@@ -58,7 +57,6 @@
     "microrouter": "^3.0.0",
     "mocha": "^3.5.3",
     "request-promise-native": "^1.0.5",
-    "sinon": "^4.2.2",
     "tslint": "^5.8.0",
     "typescript": "^2.4.1"
   }
