@@ -68,12 +68,15 @@ describe('koa middleware', () => {
     it('processes successful query', () => {
       return verifyEndpointSuccess(url, false);
     });
+
     it('processes successful GET query', () => {
       return verifyEndpointGet(url, false);
     });
+
     it('processes invalid query', () => {
       return verifyEndpointFailure(url);
     });
+
     it('processes query that errors', () => {
       return verifyEndpointError(url);
     });
@@ -93,6 +96,13 @@ describe('koa middleware', () => {
           resolve();
         });
       })
-    })
+    });
+// Help!
+    it('passes the request host header', async () => {
+      const passesRequestHostHeader = {
+        'Host': 'example.com'
+      };
+       assert.strictEqual(engine.frontendConfig.host, passesRequestHostHeader.Host);
+    });
   });
 });

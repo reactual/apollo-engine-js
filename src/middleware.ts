@@ -62,7 +62,7 @@ export function makeKoaMiddleware(params: MiddlewareParams) {
         else if (ctx.req.headers['x-engine-from'] === params.psk) return next();
         else if (ctx.req.method !== 'GET' && ctx.req.method !== 'POST') return next();
         else return new Promise((resolve, reject) => {
-                ctx.req.pipe(request(params.uri + ctx.originalUrl, (error, response, body) => {
+                ctx.req.pipe(request(params.uri + ctx.originalUrl, { headers: ctx.req.headers }, (error, response, body) => {
                     if(!!error || !response || !response.statusCode) {
                         reject(new Error('Missing response from Engine proxy.'));
                     }
@@ -76,7 +76,6 @@ export function makeKoaMiddleware(params: MiddlewareParams) {
             });
     }
 }
-
 
 export function instrumentHapi(server: Server, params: MiddlewareParams) {
     server.ext('onRequest', (req, reply) => {
