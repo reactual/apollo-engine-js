@@ -4,9 +4,6 @@ import {readFileSync} from 'fs';
 import {EventEmitter} from 'events';
 import {parse as urlParser} from 'url';
 
-// Typings are not available
-const streamJsonObjects = require('stream-json/utils/StreamJsonObjects');
-
 import {
     MiddlewareParams,
     makeMicroMiddleware,
@@ -65,15 +62,6 @@ export interface OriginHttpConfig extends OriginHttpParams {
 // All configuration of "origin"  (including fields managed by apollo-engine-js)
 export interface OriginConfig extends OriginParams {
     http?: OriginHttpConfig
-}
-
-export interface LogData {
-    proxy: any
-}
-
-export interface Logger {
-    error(data: any): void;
-    log(data: LogData): void;
 }
 
 export interface EngineConfig {
@@ -136,20 +124,22 @@ export interface SideloadConfig {
     // Milliseconds to wait for the proxy binary to start; set to <=0 to wait forever.
     // If not set, defaults to 5000ms.
     startupTimeout?: number,
-    origin?: OriginParams
-    frontend?: FrontendParams
-    logger?: Logger,
+    origin?: OriginParams,
+    frontend?: FrontendParams,
+    proxyStdoutStream?: NodeJS.WritableStream,
+    proxyStderrStream?: NodeJS.WritableStream,
 }
 
 export class Engine extends EventEmitter {
     private child: ChildProcess | null;
-    private logger: Logger;
+    private proxyStdoutStream?: NodeJS.WritableStream;
+    private proxyStderrStream?: NodeJS.WritableStream;
     private graphqlPort?: number;
     private allowFullConfiguration: boolean;
     private binary: string;
     private config: string | EngineConfig;
     private middlewareParams: MiddlewareParams;
-    private running: Boolean;
+    private running: boolean;
     private startupTimeout: number;
     private originParams: OriginParams;
     private frontendParams: FrontendParams;
@@ -169,11 +159,11 @@ export class Engine extends EventEmitter {
         this.allowFullConfiguration = config.allowFullConfiguration || false;
         this.originParams = config.origin || {};
         this.frontendParams = config.frontend || {};
-        // Custom logger
-        if (config.logger) {
-            this.logger = config.logger;
-        } else {
-            this.logger = console;
+        if (config.proxyStdoutStream) {
+            this.proxyStdoutStream = config.proxyStdoutStream;
+        }
+        if (config.proxyStderrStream) {
+            this.proxyStderrStream = config.proxyStderrStream;
         }
 
         if (config.graphqlPort) {
@@ -218,7 +208,6 @@ export class Engine extends EventEmitter {
         let config = this.config;
         const endpoint = this.middlewareParams.endpoint;
         const graphqlPort = this.graphqlPort;
-        const logger = this.logger;
 
         if (typeof config === 'string') {
             config = JSON.parse(readFileSync(config as string, 'utf8') as string);
@@ -226,20 +215,6 @@ export class Engine extends EventEmitter {
 
         // Customize configuration:
         const childConfig = Object.assign({}, config as EngineConfig);
-
-        // Logging format _must_ be JSON to stdout
-        if (!childConfig.logging) {
-            childConfig.logging = {}
-        } else {
-            if (childConfig.logging.format && childConfig.logging.format !== 'JSON') {
-                logger.error(`Invalid logging format: ${childConfig.logging.format}, overridden to JSON.`);
-            }
-            if (childConfig.logging.destination && childConfig.logging.destination !== 'STDOUT') {
-                logger.error(`Invalid logging destination: ${childConfig.logging.format}, overridden to STDOUT.`);
-            }
-        }
-        childConfig.logging.format = 'JSON';
-        childConfig.logging.destination = 'STDOUT';
 
         // Inject frontend, that we will route
         const frontend = Object.assign({
@@ -278,68 +253,67 @@ export class Engine extends EventEmitter {
         }
 
         const spawnChild = () => {
-            // If logging >INFO, still log at info, then filter in node:
-            // This is because startup notifications are at INFO level.
-            let logLevelFilter: any;
-            const logLevel = childConfig.logging!.level;
-            if (logLevel) {
-                if (logLevel.match(/^warn(ing)?$/i)) {
-                    childConfig.logging!.level = 'info';
-                    logLevelFilter = /^(warn(ing)?|error|fatal)$/;
-                } else if (logLevel.match(/^error$/i)) {
-                    childConfig.logging!.level = 'info';
-                    logLevelFilter = /^(error|fatal)$/;
-                } else if (logLevel.match(/^fatal$/i)) {
-                    childConfig.logging!.level = 'info';
-                    logLevelFilter = /^fatal$/;
-                }
-            }
-            let childConfigJson = JSON.stringify(childConfig) + '\n';
+            // We want to read from engineproxy's special listening reporter fd
+            // 3 (which we tell it about with an env var). We let it write
+            // directly to our stdout and stderr (unless the user passes in
+            // their own output streams) so we don't spend CPU copying output
+            // around (and if we crash for some reason, engineproxy's output
+            // still gets seen). We don't care about engineproxy's stdin.
+            //
+            // We considered having stdout and stderr always wrapped with a
+            // prefix. We used to do this before we switched to JSON but
+            // apparently it was slow:
+            // https://github.com/apollographql/apollo-engine-js/pull/50#discussion_r153961664
+            // Users can use proxyStd*Stream to do this themselves, and we can
+            // make it easier if it's popular.
+            const stdio = ['ignore', 'inherit', 'inherit', 'pipe'];
 
-            const child = spawn(this.binary, ['-config=stdin']);
+            // If we are provided writable streams, ask child_process to create
+            // a pipe which we will pipe to them. (We could put the streams
+            // directly in `stdio` but this only works for pipes based directly
+            // on files.)
+            if (this.proxyStdoutStream) {
+                stdio[1] = 'pipe';
+            }
+            if (this.proxyStderrStream) {
+                stdio[2] = 'pipe';
+            }
+
+            const child = spawn(this.binary, ['-config=env'], {
+                stdio,
+                env: Object.assign({}, process.env, {
+                    'LISTENING_REPORTER_FD': '3',
+                    'ENGINE_CONFIG': JSON.stringify(childConfig),
+                }),
+            });
             this.child = child;
 
-            const logStream = streamJsonObjects.make();
-            logStream.output.on('data', (logData: any) => {
-                const logRecord = logData.value;
+            // Hook up custom logging streams, if provided.
+            if (this.proxyStdoutStream) {
+                child.stdout.pipe(this.proxyStdoutStream);
+            }
+            if (this.proxyStderrStream) {
+                child.stderr.pipe(this.proxyStderrStream);
+            }
 
-                // Look for message indicating successful startup:
-                if (logRecord.msg === 'Started HTTP server.') {
-                    const address = logRecord.address;
-                    this.middlewareParams.uri = `http://${address}`;
-
-                    // Notify proxy has started:
+            let listeningAddress = '';
+            child.stdio[3].on('data', (chunk) => {
+                listeningAddress += chunk.toString();
+            });
+            child.stdio[3].on('end', () => {
+                // If we read something, then it started. (If not, then this is
+                // probably just end of process cleanup.)
+                if (listeningAddress !== '') {
+                    this.middlewareParams.uri = `http://${listeningAddress}`;
+                    // Notify that proxy has started.
                     this.emit('start');
-
-                    // If we hacked the log level, revert:
-                    if (logLevelFilter) {
-                        childConfig.logging!.level = logLevel;
-                        childConfigJson = JSON.stringify(childConfig) + '\n';
-                        child.stdin.write(childConfigJson);
-
-                        // Remove the filter after the child has had plenty of time to reload the config:
-                        setTimeout(() => {
-                            logLevelFilter = null;
-                        }, 1000);
-                    }
-                }
-
-                // Print log message:
-                if (!logLevelFilter || !logRecord.level || logRecord.level.match(logLevelFilter)) {
-                    logger.log({proxy: logRecord});
                 }
             });
-
-            logStream.input.on('error', () => {
-                // We received non-json output, dump it to stderr:
-                logger.error(logStream.input._buffer);
-            });
-            // Connect log hooks:
-            child.stdout.pipe(logStream.input);
-            child.stderr.pipe(process.stderr);
-
-            // Feed config into process:
-            child.stdin.write(childConfigJson);
+            // Re-emit any errors from talking to engineproxy.
+            // XXX Not super clear if this will happen in practice, but at least
+            //     if it does, doing it this way will make it clear that the error
+            //     is coming from Engine.
+            child.stdio[3].on('error', (err) => this.emit('error', err));
 
             // Connect shutdown hooks:
             child.on('exit', (code, signal) => {
@@ -356,10 +330,10 @@ export class Engine extends EventEmitter {
                 }
 
                 if (code != null) {
-                    logger.error(`Engine crashed unexpectedly with code: ${code}`);
+                    this.emitRestarting(`Engine crashed unexpectedly with code: ${code}`);
                 }
                 if (signal != null) {
-                    logger.error(`Engine was killed unexpectedly by signal: ${signal}`);
+                    this.emitRestarting(`Engine was killed unexpectedly by signal: ${signal}`);
                 }
                 spawnChild();
             });
@@ -376,7 +350,7 @@ export class Engine extends EventEmitter {
                         this.child.kill('SIGKILL');
                         this.child = null;
                     }
-                    return reject(Error('timed out'));
+                    return reject(Error('engineproxy timed out'));
                 }, this.startupTimeout);
             }
 
@@ -384,7 +358,7 @@ export class Engine extends EventEmitter {
                 clearTimeout(cancelTimeout);
                 const port = urlParser(this.middlewareParams.uri).port;
                 if (!port) {
-                    return reject('unknown url');
+                    return reject('engineproxy url is bad');
                 }
                 resolve(parseInt(port, 10));
             });
@@ -424,5 +398,12 @@ export class Engine extends EventEmitter {
             });
             childRef.kill();
         });
+    }
+
+    private emitRestarting(error: string) {
+        if (!this.emit('restarting', new Error(error))) {
+            // No listeners; default to console.error.
+            console.error(error);
+        }
     }
 }
