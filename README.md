@@ -10,7 +10,7 @@ GraphQL requests through that proxy:
 
 ![Sequence Diagram](docs/sequence-diagram.png)
 
-# Release Notes
+Read the [Release Notes](CHANGELOG.md).
 
 Please see our [Release Notes](https://www.apollographql.com/docs/engine/proxy-release-notes.html) in the Engine documenation.
 
