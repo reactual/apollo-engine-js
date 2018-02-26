@@ -26,9 +26,9 @@
     "request": "^2.81.0"
   },
   "optionalDependencies": {
-    "apollo-engine-binary-darwin": "0.2018.2-84-g7a295e631-dirty-r7xhj1q58efr",
-    "apollo-engine-binary-linux": "0.2018.2-84-g7a295e631-dirty-r7xhj1q58efr",
-    "apollo-engine-binary-windows": "0.2018.2-84-g7a295e631-dirty-r7xhj1q58efr"
+    "apollo-engine-binary-darwin": "0.2018.2-85-gcb4f371de",
+    "apollo-engine-binary-linux": "0.2018.2-85-gcb4f371de",
+    "apollo-engine-binary-windows": "0.2018.2-85-gcb4f371de"
   },
   "devDependencies": {
     "@types/express": "^4.0.36",
