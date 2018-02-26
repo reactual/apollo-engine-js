@@ -11,6 +11,20 @@ const {testEngine} = require('./test');
 describe('koa middleware', () => {
   let app;
 
+  // TODO: This should set the headers the 'Koa' way (???)
+  const echoRequestHeadersMiddleware = async (ctx, next) => {
+    const {req, res} = ctx;
+    console.log(req, res);
+    const injectedHeader = req.headers['x-echo-header'];
+    if (injectedHeader) {
+      const reqHeaders = req.headers;
+      res.header('content-type', 'application/json');
+      res.header('x-echoed-request-headers', JSON.stringify(reqHeaders));
+      res.send(200);
+    }
+    await next();
+  };
+
   function gqlServer() {
     let graphqlHandler = graphqlKoa({
       schema,
@@ -20,6 +34,7 @@ describe('koa middleware', () => {
     const router = new koaRouter();
     router.post('/graphql', koaBody(), graphqlHandler);
     router.get('/graphql', graphqlHandler);
+    // app.use(echoRequestHeadersMiddleware);
     app.use(router.routes());
     app.use(router.allowedMethods());
     return app.listen(0);
@@ -97,12 +112,30 @@ describe('koa middleware', () => {
         });
       })
     });
-// Help!
-    // it('passes the request host header', () => {
-    //   const testHostHeader = {
-    //     'Host': 'example.com'
-    //   };
-    //   assert.strictEqual(engine.frontendConfig.host, testHostHeader.Host);
-    // });
+
+    it.only('passes the request host header', () => {
+      const testHostHeader = {
+        'Host': 'example.com',
+        'x-echo-header': true,
+        'content-type': 'application/json'
+      };
+
+      return new Promise((resolve) => {
+        request.post({
+          url,
+          json: true,
+          body: {'query': '{ hello }'},
+          header: testHostHeader
+        }, (err, response, body) => {
+          console.log('response: ', response.statusCode);
+          console.log('headers: ', response.headers);
+          const requestHeaders = response.headers['x-echoed-request-headers'];
+          assert.isNotNullOrUndefined(requestHeaders);
+          // May not match case
+          assert.strictEqual(testHostHeader['Host'], requestHeaders['host']);
+          resolve(body);
+        });
+      });
+    });
   });
 });
