@@ -52,6 +52,11 @@ describe('engine', () => {
   }
 
   describe('config', () => {
+    it('throws on unknown top level keys', () => {
+      assert.throws(() => new Engine({unknownKey: true}),
+                    Error,
+                    /Unknown option 'unknownKey'/);
+    });
     it('allows reading from file proxy', async () => {
       // Install middleware before GraphQL handler:
       engine = new Engine({

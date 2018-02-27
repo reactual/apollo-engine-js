@@ -115,6 +115,12 @@ export interface EngineConfig {
     }
 }
 
+// *****************************************************************************
+// When you update the list of fields in this interface, also update the
+// list sideloadConfigKeys below! (It would be nice to use something like
+// https://github.com/kimamula/ts-transformer-keys but running transformers
+// is awkward.
+// *****************************************************************************
 export interface SideloadConfig {
     engineConfig: string | EngineConfig,
     endpoint?: string,
@@ -130,6 +136,18 @@ export interface SideloadConfig {
     proxyStdoutStream?: NodeJS.WritableStream,
     proxyStderrStream?: NodeJS.WritableStream,
 }
+const sideloadConfigKeys = new Set([
+  'engineConfig',
+  'endpoint',
+  'useConfigPrecisely',
+  'graphqlPort',
+  'dumpTraffic',
+  'startupTimeout',
+  'origin',
+  'frontend',
+  'proxyStdoutStream',
+  'proxyStderrStream',
+]);
 
 export class Engine extends EventEmitter {
     private child: ChildProcess | null;
@@ -147,6 +165,17 @@ export class Engine extends EventEmitter {
 
     public constructor(config: SideloadConfig) {
         super();
+
+        // It's easy to accidentally pass fields that belong in `engineConfig`
+        // at the top level, so make unknown options into errors.
+        Object.keys(config).forEach(k => {
+            if (!sideloadConfigKeys.has(k)) {
+                throw new Error(`Unknown option '${k}' in 'new Engine'. Note that the ` +
+                                `"proxy config file" options need to be passed inside the ` +
+                                `'engineConfig' option.`);
+            }
+        });
+
         this.running = false;
         if (typeof config.startupTimeout === 'undefined') {
             this.startupTimeout = 5000;
