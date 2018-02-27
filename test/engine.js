@@ -124,7 +124,7 @@ describe('engine', () => {
       }).listen(0);
     });
 
-    it.only('can be configured in single proxy mode', async () => {
+    it('can be configured in single proxy mode', async () => {
       // When using singleProxy the middleware is not required
       let port = gqlServer('/graphql');
 
@@ -146,7 +146,7 @@ describe('engine', () => {
       let testPort = gqlServer('/test/graphql');
       let defaultPort = gqlServer('/graphql');
       engine = new Engine({
-        allowFullConfiguration: true,
+        useConfigPrecisely: true,
         engineConfig: {
           apiKey: 'faked',
           origins: [

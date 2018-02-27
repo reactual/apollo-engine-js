@@ -318,7 +318,6 @@ export class Engine extends EventEmitter {
                 if (listeningAddress !== '') {
                     this.middlewareParams.uri = `http://${listeningAddress}`;
                     // Notify that proxy has started.
-                    console.log('STARTING ENGINE PROXY');
                     this.emit('start');
                 }
             });

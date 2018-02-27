@@ -4,7 +4,7 @@ exports.testEngine = (path) => {
   path = path || '/graphql';
 
   return new Engine({
-    endpoints: [path],
+    endpoint: path,
     engineConfig: {
       logging: {
         level: 'warn'
