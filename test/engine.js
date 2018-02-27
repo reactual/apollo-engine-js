@@ -146,7 +146,7 @@ describe('engine', () => {
       let testPort = gqlServer('/test/graphql');
       let defaultPort = gqlServer('/graphql');
       engine = new Engine({
-        allowFullConfiguration: true,
+        useConfigPrecisely: true,
         engineConfig: {
           apiKey: 'faked',
           origins: [

@@ -26,19 +26,20 @@ export interface ExtensionsConfig {
     blacklist?: string[],
 }
 
-// User-configurable fields of EngineConfig "frontend"
+// Shortcut to user-configurable fields of EngineConfig "frontend" in default double-proxy mode
 export interface FrontendParams {
     extensions?: ExtensionsConfig,
 }
 
-// All configuration of "frontend" (including fields managed by apollo-engine-js)
+// All configuration of default "frontend" (including fields managed by apollo-engine-js)
 export interface FrontendConfig extends FrontendParams {
     host: string,
-    endpoints: string[],
+    endpoint?: string,
+    endpoints?: string[],
     port: number,
 }
 
-// User-configurable fields of EngineConfig "origin"
+// Shortcut to user-configurable fields of EngineConfig "origin" in default double-proxy mode
 export interface OriginParams {
     requestTimeout?: string,
     maxConcurrentRequests?: number,
@@ -117,7 +118,7 @@ export interface EngineConfig {
 export interface SideloadConfig {
     engineConfig: string | EngineConfig,
     endpoint?: string,
-    allowFullConfiguration?: boolean,
+    useConfigPrecisely?: boolean,
     graphqlPort?: number,
     // Should all requests/responses to the proxy be written to stdout?
     dumpTraffic?: boolean,
@@ -135,7 +136,7 @@ export class Engine extends EventEmitter {
     private proxyStdoutStream?: NodeJS.WritableStream;
     private proxyStderrStream?: NodeJS.WritableStream;
     private graphqlPort?: number;
-    private allowFullConfiguration: boolean;
+    private useConfigPrecisely: boolean;
     private binary: string;
     private config: string | EngineConfig;
     private middlewareParams: MiddlewareParams;
@@ -156,7 +157,7 @@ export class Engine extends EventEmitter {
         this.middlewareParams.endpoint = config.endpoint || '/graphql';
         this.middlewareParams.psk = randomBytes(48).toString("hex");
         this.middlewareParams.dumpTraffic = config.dumpTraffic || false;
-        this.allowFullConfiguration = config.allowFullConfiguration || false;
+        this.useConfigPrecisely = config.useConfigPrecisely || false;
         this.originParams = config.origin || {};
         this.frontendParams = config.frontend || {};
         if (config.proxyStdoutStream) {
@@ -165,14 +166,13 @@ export class Engine extends EventEmitter {
         if (config.proxyStderrStream) {
             this.proxyStderrStream = config.proxyStderrStream;
         }
-
         if (config.graphqlPort) {
             this.graphqlPort = config.graphqlPort;
         } else {
             const port: any = process.env.PORT;
             if (isFinite(port)) {
                 this.graphqlPort = parseInt(port, 10);
-            } else if(!this.allowFullConfiguration) {
+            } else if(!this.useConfigPrecisely) {
                 throw new Error(`Neither 'graphqlPort' nor process.env.PORT is set. ` +
                     `In order for Apollo Engine to act as a proxy for your GraphQL server, ` +
                     `it needs to know which port your GraphQL server is listening on (this is ` +
@@ -216,19 +216,31 @@ export class Engine extends EventEmitter {
         // Customize configuration:
         const childConfig = Object.assign({}, config as EngineConfig);
 
-        // Inject frontend, that we will route
+        // Inject frontend, that we will route for users that are allowing us to
+        // use the default configurations (i.e. users that have not set useConfigPrecisely
+        // to true)
         const frontend = Object.assign({
             host: '127.0.0.1',
             endpoints: [endpoint],
             port: 0,
         }, this.frontendParams);
         if (typeof childConfig.frontends === 'undefined') {
+            if (this.useConfigPrecisely) {
+                throw new Error(`Cannot run Apollo Engine with no frontend. Either specify ` +
+                    `at least one frontend in your engine-config or set useConfigPrecisely ` +
+                    `to false.`);
+            }
             childConfig.frontends = [frontend];
-        } else if (!this.allowFullConfiguration) {
+        } else if (!this.useConfigPrecisely) {
             childConfig.frontends.push(frontend)
         }
 
         if (typeof childConfig.origins === 'undefined') {
+            if (this.useConfigPrecisely) {
+                throw new Error(`Cannot run Apollo Engine with no origin. Either specify ` +
+                    `at least one origin in your engine-config or set useConfigPrecisely ` +
+                    `to false.`);
+            }
             const origin = Object.assign({}, this.originParams) as OriginConfig;
             const defaultHttpOrigin = {
                 url: 'http://127.0.0.1:' + graphqlPort + endpoint,
@@ -240,7 +252,7 @@ export class Engine extends EventEmitter {
                 origin.http = Object.assign({}, defaultHttpOrigin, origin.http);
             }
             childConfig.origins = [origin];
-        } else if(!this.allowFullConfiguration) {
+        } else if(!this.useConfigPrecisely) {
             // Extend any existing HTTP origins with the chosen PSK:
             // (trust it to fill other fields correctly)
             childConfig.origins.forEach(origin => {
