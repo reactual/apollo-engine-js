@@ -1,27 +1,36 @@
 const connect = require('connect');
 const query = require('connect-query');
 const bodyParser = require('body-parser');
-const {graphqlConnect} = require('apollo-server-express');
+const { graphqlConnect } = require('apollo-server-express');
 const http = require('http');
 
-const {schema, rootValue, verifyEndpointSuccess, verifyEndpointFailure, verifyEndpointError, verifyEndpointGet} = require('./schema');
-const {testEngine} = require('./test');
+const {
+  schema,
+  rootValue,
+  verifyEndpointSuccess,
+  verifyEndpointFailure,
+  verifyEndpointError,
+  verifyEndpointGet,
+} = require('./schema');
+const { testEngine } = require('./test');
 
 describe('connect middleware', () => {
   let app;
   const endpoint = '/graphql';
   beforeEach(() => {
-    app = new connect()
-      .use(query());
+    app = new connect().use(query());
   });
 
   function gqlServer() {
     app.use(endpoint, bodyParser.json());
-    app.use(endpoint, graphqlConnect({
-      schema,
-      rootValue,
-      tracing: true
-    }));
+    app.use(
+      endpoint,
+      graphqlConnect({
+        schema,
+        rootValue,
+        tracing: true,
+      }),
+    );
     return http.createServer(app).listen(0);
   }
 

@@ -1,20 +1,29 @@
 const http = require('http');
 const express = require('express');
-const {graphqlExpress} = require('apollo-server-express');
+const { graphqlExpress } = require('apollo-server-express');
 const bodyParser = require('body-parser');
 
 const request = require('request-promise-native');
-const {assert} = require('chai');
+const { assert } = require('chai');
 const isRunning = require('is-running');
 
-const {schema, rootValue, verifyEndpointSuccess, verifyEndpointFailure, verifyEndpointError, verifyEndpointGet, verifyEndpointBatch} = require('./schema');
-const {testEngine} = require('./test');
+const {
+  schema,
+  rootValue,
+  verifyEndpointSuccess,
+  verifyEndpointFailure,
+  verifyEndpointError,
+  verifyEndpointGet,
+  verifyEndpointBatch,
+} = require('./schema');
+const { testEngine } = require('./test');
 
 const acceptableEndings = ['/', '?', '?123', '\\', '/?123', '\\?'];
 
 describe('express middleware', () => {
   // Start graphql-express on a random port:
-  let app, engine = null;
+  let app,
+    engine = null;
   beforeEach(() => {
     app = express();
   });
@@ -31,18 +40,25 @@ describe('express middleware', () => {
 
   function gqlServer(path) {
     path = path || '/graphql';
-      app.get(`${path}/ping`, (req, res) => {
-        res.json({'pong': true});
-      });
+    app.get(`${path}/ping`, (req, res) => {
+      res.json({ pong: true });
+    });
 
-    app.use(path, bodyParser.json(), graphqlExpress({
+    app.use(
+      path,
+      bodyParser.json(),
+      graphqlExpress({
         schema,
         rootValue,
         tracing: true,
         cacheControl: true,
-      }));
+      }),
+    );
 
-    const graphQLServerPort = http.createServer(app).listen().address().port;
+    const graphQLServerPort = http
+      .createServer(app)
+      .listen()
+      .address().port;
     return graphQLServerPort;
   }
 
@@ -64,7 +80,7 @@ describe('express middleware', () => {
     });
 
     it('processes successful query', () => {
-      return verifyEndpointSuccess(url, true)
+      return verifyEndpointSuccess(url, true);
     });
     it('processes successful GET query', () => {
       return verifyEndpointGet(url, true);
@@ -77,7 +93,10 @@ describe('express middleware', () => {
     });
     it('returns cache information', async () => {
       const body = await verifyEndpointSuccess(url, true);
-      assert.notEqual(undefined, body['extensions'] && body['extensions']['cacheControl']);
+      assert.notEqual(
+        undefined,
+        body['extensions'] && body['extensions']['cacheControl'],
+      );
     });
   });
 
@@ -86,7 +105,7 @@ describe('express middleware', () => {
     let url, path;
     beforeEach(() => {
       setupEngine();
-      path = '/graphql'
+      path = '/graphql';
       url = `http://localhost:${engine.graphqlPort}${path}`;
     });
 
@@ -116,9 +135,9 @@ describe('express middleware', () => {
       });
       acceptableEndings.forEach(acceptableEnding => {
         it(`using server endpoint ${acceptableEnding}`, () => {
-          return verifyEndpointSuccess(url+acceptableEnding, false);
-        })
-      })
+          return verifyEndpointSuccess(url + acceptableEnding, false);
+        });
+      });
       it('processes successful GET query', () => {
         return verifyEndpointGet(url, false);
       });
@@ -133,7 +152,10 @@ describe('express middleware', () => {
       });
       it('returns cache information', async () => {
         const body = await verifyEndpointSuccess(url, false);
-        assert.notEqual(undefined, body['extensions'] && body['extensions']['cacheControl']);
+        assert.notEqual(
+          undefined,
+          body['extensions'] && body['extensions']['cacheControl'],
+        );
       });
     });
   });
@@ -142,7 +164,10 @@ describe('express middleware', () => {
     it('allows routing root path through proxy', async () => {
       setupEngine('/');
       await engine.start();
-      return verifyEndpointSuccess(`http://localhost:${engine.graphqlPort}/`, false);
+      return verifyEndpointSuccess(
+        `http://localhost:${engine.graphqlPort}/`,
+        false,
+      );
     });
 
     it('does not route child path through proxy', async () => {
@@ -161,7 +186,10 @@ describe('express middleware', () => {
       assert.strictEqual('{"pong":true}', childThroughProxy);
 
       // GraphQL through proxy works too:
-      return verifyEndpointSuccess(`http://localhost:${engine.graphqlPort}/graphql`, false);
+      return verifyEndpointSuccess(
+        `http://localhost:${engine.graphqlPort}/graphql`,
+        false,
+      );
     });
   });
 

@@ -1,9 +1,16 @@
 const micro = require('micro');
-const {microGraphql} = require('apollo-server-micro');
-const {get, post, router} = require('microrouter')
+const { microGraphql } = require('apollo-server-micro');
+const { get, post, router } = require('microrouter');
 
-const {schema, rootValue, verifyEndpointSuccess, verifyEndpointFailure, verifyEndpointError, verifyEndpointGet} = require('./schema');
-const {testEngine} = require('./test');
+const {
+  schema,
+  rootValue,
+  verifyEndpointSuccess,
+  verifyEndpointFailure,
+  verifyEndpointError,
+  verifyEndpointGet,
+} = require('./schema');
+const { testEngine } = require('./test');
 
 describe('micro middleware', () => {
   let app;
@@ -16,16 +23,13 @@ describe('micro middleware', () => {
     const handler = microGraphql({
       schema,
       rootValue,
-      tracing: true
+      tracing: true,
     });
 
     app = micro(
       applyMiddlewares(middleware)(
-        router(
-          get('/graphql', handler),
-          post('/graphql', handler)
-        )
-      )
+        router(get('/graphql', handler), post('/graphql', handler)),
+      ),
     );
 
     return app.listen(0);

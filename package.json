@@ -13,7 +13,7 @@
     "test": "mocha",
     "pretravis": "npm run compile",
     "travis": "istanbul cover _mocha -- --timeout 5000 --full-trace ./test/*.js",
-    "lint": "tslint -p tsconfig.json src/*.ts"
+    "lint": "prettier -l '{src,test}/**/*.{ts,js}' && tslint -p tsconfig.json '{src,test}/**/*.ts'"
   },
   "license": "SEE LICENSE IN LICENSE.md",
   "repository": "https://github.com/apollographql/apollo-engine-js",
@@ -23,6 +23,7 @@
     "npm": ">=4.0"
   },
   "dependencies": {
+    "prettier": "^1.11.0",
     "request": "^2.81.0"
   },
   "optionalDependencies": {
@@ -59,5 +60,9 @@
     "request-promise-native": "^1.0.5",
     "tslint": "^5.8.0",
     "typescript": "^2.4.1"
+  },
+  "prettier": {
+    "trailingComma": "all",
+    "singleQuote": true
   }
 }

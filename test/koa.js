@@ -1,12 +1,19 @@
 const koa = require('koa');
 const koaRouter = require('koa-router');
 const koaBody = require('koa-bodyparser');
-const {graphqlKoa} = require('apollo-server-koa');
+const { graphqlKoa } = require('apollo-server-koa');
 const request = require('request');
-const {assert} = require('chai');
+const { assert } = require('chai');
 
-const {schema, rootValue, verifyEndpointSuccess, verifyEndpointFailure, verifyEndpointError, verifyEndpointGet} = require('./schema');
-const {testEngine} = require('./test');
+const {
+  schema,
+  rootValue,
+  verifyEndpointSuccess,
+  verifyEndpointFailure,
+  verifyEndpointError,
+  verifyEndpointGet,
+} = require('./schema');
+const { testEngine } = require('./test');
 
 describe('koa middleware', () => {
   let app;
@@ -15,7 +22,7 @@ describe('koa middleware', () => {
     let graphqlHandler = graphqlKoa({
       schema,
       rootValue,
-      tracing: true
+      tracing: true,
     });
     const router = new koaRouter();
     router.post('/graphql', koaBody(), graphqlHandler);
@@ -83,16 +90,19 @@ describe('koa middleware', () => {
       // This simulates engine returning an invalid response, without triggering
       // any actual bugs.
       engine.middlewareParams.uri = 'http://127.0.0.1:22';
-      return new Promise((resolve) => {
-        request.post({
-          url,
-          json: true,
-          body: {'query': '{ hello }'}
-        }, (err, response, body) => {
-          assert.strictEqual(500, response.statusCode);
-          resolve();
-        });
-      })
-    })
+      return new Promise(resolve => {
+        request.post(
+          {
+            url,
+            json: true,
+            body: { query: '{ hello }' },
+          },
+          (err, response, body) => {
+            assert.strictEqual(500, response.statusCode);
+            resolve();
+          },
+        );
+      });
+    });
   });
 });
