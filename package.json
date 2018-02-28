@@ -11,8 +11,9 @@
     "prepare": "npm run clean && npm run compile",
     "pretest": "tsc",
     "test": "cross-env NODE_ENV=test mocha",
+    "test-verify-no-extraneous-output": "test $(NODE_ENV=test mocha --reporter min 2>&1 | wc -l) -eq 3",
     "pretravis": "npm run compile",
-    "travis": "istanbul cover _mocha -- --timeout 5000 --full-trace ./test/*.js",
+    "travis": "NODE_ENV=test istanbul cover _mocha -- --timeout 5000 --full-trace ./test/*.js",
     "lint": "prettier -l '{src,test}/**/*.{ts,js}' && tslint -p tsconfig.json '{src,test}/**/*.ts'",
     "lint-fix": "prettier --write '{src,test}/**/*.{ts,js}' && tslint --fix -p tsconfig.json '{src,test}/**/*.ts'"
   },
