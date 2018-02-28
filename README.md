@@ -58,17 +58,21 @@ This is the minimum necessary information in the engine configuration object to 
   },
   "endpoint": "/graphql",           // Path of GraphQL endpoint, normally /graphql.
   "graphqlPort": process.env.PORT,  // Port that the NodeJS server is running on.
-  "dumpTraffic": false,             // If true, HTTP requests and responses will be dumped to stdout. Should only be used if debugging an issue.
+  "dumpTraffic": false,             // If true, HTTP requests and responses will be dumped to stdout.
+                                    //Should only be used if debugging an issue.
   "startupTimeout": 5000,           // If >0, .start() will throw if the proxy binary does not finish startup                                       // within the given number of milliseconds.
                                     // Defaults to 5000ms if not set.
-  "useConfigPrecisely": true        // For use with single proxy mode. Set this to true for the spawned Engine proxy process to use the engineConfig object specified in the constructor. All other fields will be ignored.
+  "useConfigPrecisely": true        // For use with single proxy mode. Set this to true for the spawned Engine                                      // proxy process to use the engineConfig object specified in the constructor.                                   // All other fields will be ignored.
 
   // Shortcuts to "origins" in EngineConfig
   "origin": {
-    "requestTimeout": "5s",          // Time to wait for the Node server to respond to the Engine Proxy.
-    "maxConcurrentRequests": 9999,  // The maximum number of concurrent GraphQL requests to make back to the Node server.
-    "supportsBatch": true,          // If false, GraphQL query batches will be broken up and processed in parallel. If true, they are batch processed.
-    "overrideRequestHeaders": {     // Headers to replace or add in requests to your origin. May be useful for virtually-hosted GraphQL servers.
+    "requestTimeout": "5s",         // Time to wait for the Node server to respond to the Engine Proxy.
+    "maxConcurrentRequests": 9999,  // The maximum number of concurrent GraphQL requests to make back
+                                    // to the Node server.
+    "supportsBatch": true,          // If false, GraphQL query batches will be broken up and processed in
+                                    // parallel. If true, they are batch processed.
+    "overrideRequestHeaders": {     // Headers to replace or add in requests to your origin. May be useful
+                                    // for virtually-hosted GraphQL servers.
       "Host": "127.0.0.1:8080",
       "X-New-Header": "xxxxxxxxx"
     }
@@ -78,7 +82,8 @@ This is the minimum necessary information in the engine configuration object to 
   "frontend": {
     "extensions": {                             // Configuration for GraphQL response extensions
       "strip": ["cacheControl", "tracing"],     // Extensions to remove from responses served to clients
-      "blacklist": ["tracing"],                 // Extensions to block from being served to clients, even if requested with "includeInResponse".
+      "blacklist": ["tracing"],                 // Extensions to block from being served to clients, even
+                                                // if requested with "includeInResponse".
     }
   },
 }
