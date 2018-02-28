@@ -37,7 +37,7 @@ export interface FrontendConfig extends FrontendParams {
   endpoint?: string;
   endpoints?: string[];
   endpointMap?: {
-    [endpoint: string] : string;
+    [endpoint: string]: string;
   };
   port: number;
 }
@@ -198,7 +198,9 @@ export class Engine extends EventEmitter {
       this.startupTimeout = config.startupTimeout;
     }
     this.middlewareParams = new MiddlewareParams();
-    this.middlewareParams.endpoints = config.endpoints || [config.endpoint || '/graphql'];
+    this.middlewareParams.endpoints = config.endpoints || [
+      config.endpoint || '/graphql',
+    ];
     this.middlewareParams.psk = randomBytes(48).toString('hex');
     this.middlewareParams.dumpTraffic = config.dumpTraffic || false;
     this.useConfigPrecisely = config.useConfigPrecisely || false;
@@ -268,10 +270,10 @@ export class Engine extends EventEmitter {
     // Customize configuration:
     const childConfig = Object.assign({}, config as EngineConfig);
 
-    const endpointMap : { [endpoint: string] : string }  = {}
+    const endpointMap: { [endpoint: string]: string } = {};
     endpoints.forEach(endpoint => {
       endpointMap[endpoint] = endpoint;
-    })
+    });
 
     // Inject frontend, that we will route for users that are allowing us to
     // use the default configurations (i.e. users that have not set useConfigPrecisely
@@ -308,17 +310,19 @@ export class Engine extends EventEmitter {
             `to false.`,
         );
       }
-      const defaultOrigins : any[] = [];
+      const defaultOrigins: any[] = [];
       endpoints.forEach(endpoint => {
         const origin = Object.assign({}, this.originParams) as OriginConfig;
-        origin.http = Object.assign({},
+        origin.http = Object.assign(
+          {},
           {
             url: `http://127.0.0.1:${graphqlPort}${endpoint}`,
             headerSecret: this.middlewareParams.psk,
           },
-          origin.http || {});
-          origin['name'] = endpoint;
-        defaultOrigins.push(origin)
+          origin.http || {},
+        );
+        origin['name'] = endpoint;
+        defaultOrigins.push(origin);
       });
       childConfig.origins = defaultOrigins;
     } else if (!this.useConfigPrecisely) {

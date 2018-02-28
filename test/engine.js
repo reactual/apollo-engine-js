@@ -63,23 +63,21 @@ describe('engine', () => {
   }
 
   function gqlServerForMultiplePaths(paths) {
-    paths.forEach(
-      path => {
-        app.get(`${path}/ping`, (req, res) => {
-          res.json({ pong: true });
-        });
+    paths.forEach(path => {
+      app.get(`${path}/ping`, (req, res) => {
+        res.json({ pong: true });
+      });
 
-        app.use(
-          path,
-          bodyParser.json(),
-          graphqlExpress({
-            schema: schema,
-            rootValue: rootValue,
-            tracing: true,
-          }),
-        );
-      }
-    )
+      app.use(
+        path,
+        bodyParser.json(),
+        graphqlExpress({
+          schema: schema,
+          rootValue: rootValue,
+          tracing: true,
+        }),
+      );
+    });
 
     return http
       .createServer(app)
@@ -197,8 +195,8 @@ describe('engine', () => {
         engineConfig: {
           reporting: {
             disabled: true,
-          }
-        }
+          },
+        },
       });
       app.use(engine.expressMiddleware());
 
@@ -208,7 +206,7 @@ describe('engine', () => {
       await engine.start();
       // Unfortunately it's annoying to do a forEach here due to async / await
       for (let i; i < endpoints.length; i++) {
-        await verifyEndpointSuccess(`http://localhost:${port}${endpoints[i]}`)
+        await verifyEndpointSuccess(`http://localhost:${port}${endpoints[i]}`);
       }
     });
 
@@ -361,8 +359,8 @@ describe('engine', () => {
         engineConfig: {
           reporting: {
             disabled: true,
-          }
-        }
+          },
+        },
       });
 
       assert.strictEqual(endpoints, engine.middlewareParams.endpoints);
