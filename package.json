@@ -13,7 +13,8 @@
     "test": "cross-env NODE_ENV=test mocha",
     "pretravis": "npm run compile",
     "travis": "istanbul cover _mocha -- --timeout 5000 --full-trace ./test/*.js",
-    "lint": "prettier -l '{src,test}/**/*.{ts,js}' && tslint -p tsconfig.json '{src,test}/**/*.ts'"
+    "lint": "prettier -l '{src,test}/**/*.{ts,js}' && tslint -p tsconfig.json '{src,test}/**/*.ts'",
+    "lint-fix": "prettier --write '{src,test}/**/*.{ts,js}' && tslint --fix -p tsconfig.json '{src,test}/**/*.ts'"
   },
   "license": "SEE LICENSE IN LICENSE.md",
   "repository": "https://github.com/apollographql/apollo-engine-js",
