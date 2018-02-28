@@ -34,6 +34,8 @@ describe('koa middleware', () => {
 
   beforeEach(() => {
     app = new koa();
+    // Don't print errors from middleware to stderr.
+    app.silent = true;
   });
 
   describe('without engine', () => {

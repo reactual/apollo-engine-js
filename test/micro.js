@@ -1,6 +1,7 @@
 const micro = require('micro');
 const { microGraphql } = require('apollo-server-micro');
 const { get, post, router } = require('microrouter');
+const sinon = require('sinon');
 
 const {
   schema,
@@ -35,6 +36,20 @@ describe('micro middleware', () => {
     return app.listen(0);
   }
 
+  // micro has an unconfigurable behavior to console.error any error thrown by a
+  // handler (https://github.com/zeit/micro/issues/329).  We use sinon to
+  // override console.error; however, we use callThrough to ensure that by
+  // default, it just calls console.error normally. The tests that throw errors
+  // tell the stub to "stub out" console.error on the first call.
+  let consoleErrorStub;
+  beforeEach(() => {
+    consoleErrorStub = sinon.stub(console, 'error');
+    consoleErrorStub.callThrough();
+  });
+  afterEach(() => {
+    consoleErrorStub.restore();
+  });
+
   describe('without engine', () => {
     let url;
     beforeEach(() => {
@@ -49,6 +64,7 @@ describe('micro middleware', () => {
       return verifyEndpointGet(url, true);
     });
     it('processes invalid query', () => {
+      consoleErrorStub.onFirstCall().returns(undefined);
       return verifyEndpointFailure(url);
     });
     it('processes query that errors', () => {
@@ -79,6 +95,7 @@ describe('micro middleware', () => {
       return verifyEndpointGet(url, false);
     });
     it('processes invalid query', () => {
+      consoleErrorStub.onFirstCall().returns(undefined);
       return verifyEndpointFailure(url);
     });
     it('processes query that errors', () => {
