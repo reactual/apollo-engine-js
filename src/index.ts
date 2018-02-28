@@ -127,14 +127,13 @@ export interface EngineConfig {
 // *****************************************************************************
 export interface SideloadConfig {
   engineConfig: string | EngineConfig;
-  // If you would like to proxy incoming requests to multiple multiple endpoints to
-  // one GraphQL server, this will proxy all matching requests to the endpoint the
-  // request came to. In addition, any `origin` created for an endpoint will be
-  // named in correspondence with its `endpoint`. For instance, if `endpoints` is
-  // ['/test', '/graphql'], two origins will be created: one named '/test' and the
-  // other named '/graphql'.
+  // Which endpoints should Engine expect GraphQL queries to come in on?
+  // If set, each endpoint will have a corresponding `origin` named by the
+  // endpoint. For instance, if `endpoints` is ['/test', '/graphql'], then
+  // two origins will be created named '/test' and '/graphql' mapped to the
+  // respective URLs.
   endpoints?: string[];
-  // Will create an origin with {name: endpoint}
+  // Shortcut to setting `endpoints : ['endpoint']` for backwards compatability.
   endpoint?: string;
   useConfigPrecisely?: boolean;
   graphqlPort?: number;
@@ -286,6 +285,10 @@ export class Engine extends EventEmitter {
       },
       this.frontendParams,
     ) as FrontendConfig;
+    // If someone has specified endpoint or endpoints explicitly, we should probably
+    // respect it. However I fear that this might cause more harm than good in most
+    // cases, especially since single-proxy apps should always useConfigPrecisely.
+    // XXX: Should we simply translate this into a corresponding endpointMap?
     if (frontend.endpoint || frontend.endpoints) {
       delete frontend.endpointMap;
     }
