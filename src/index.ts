@@ -128,9 +128,13 @@ export interface EngineConfig {
 export interface SideloadConfig {
   engineConfig: string | EngineConfig;
   // If you would like to proxy incoming requests to multiple multiple endpoints to
-  // one GraphQL server, this will proxy all matching requests to the first endpoint
-  // specified in `endpoints`.
+  // one GraphQL server, this will proxy all matching requests to the endpoint the
+  // request came to. In addition, any `origin` created for an endpoint will be
+  // named in correspondence with its `endpoint`. For instance, if `endpoints` is
+  // ['/test', '/graphql'], two origins will be created: one named '/test' and the
+  // other named '/graphql'.
   endpoints?: string[];
+  // Will create an origin with {name: endpoint}
   endpoint?: string;
   useConfigPrecisely?: boolean;
   graphqlPort?: number;
@@ -264,7 +268,7 @@ export class Engine extends EventEmitter {
     // Customize configuration:
     const childConfig = Object.assign({}, config as EngineConfig);
 
-    const endpointMap : any  = {}
+    const endpointMap : { [endpoint: string] : string }  = {}
     endpoints.forEach(endpoint => {
       endpointMap[endpoint] = endpoint;
     })
