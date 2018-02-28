@@ -194,7 +194,7 @@ describe('engine', () => {
         endpoints: endpoints,
         engineConfig: {
           logging: {
-            level: 'WARN'
+            level: 'WARN',
           },
           reporting: {
             disabled: true,
