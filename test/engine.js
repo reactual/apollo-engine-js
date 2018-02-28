@@ -13,7 +13,7 @@ const { Engine } = require('../lib/index');
 const { schema, rootValue, verifyEndpointSuccess } = require('./schema');
 const { testEngine } = require('./test');
 
-describe('engine', () => {
+describe.only('engine', () => {
   let app,
     engine = null,
     didHideProxyError,

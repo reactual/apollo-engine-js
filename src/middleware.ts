@@ -45,7 +45,7 @@ export function makeExpressMiddleware(params: MiddlewareParams) {
         }
     }
   };
-}
+
 
 export function makeConnectMiddleware(params: MiddlewareParams) {
     const endpointChecker = endpointsMatcher(params.endpoints);
@@ -60,7 +60,7 @@ export function makeConnectMiddleware(params: MiddlewareParams) {
         }
     }
   };
-}
+
 
 export function makeKoaMiddleware(params: MiddlewareParams) {
     const endpointChecker = endpointsMatcher(params.endpoints);

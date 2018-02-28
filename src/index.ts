@@ -123,7 +123,7 @@ export interface EngineConfig {
 // *****************************************************************************
 export interface SideloadConfig {
   engineConfig: string | EngineConfig;
-  endpoint?: string;
+  endpoints?: string[];
   useConfigPrecisely?: boolean;
   graphqlPort?: number;
   // Should all requests/responses to the proxy be written to stdout?
@@ -185,7 +185,7 @@ export class Engine extends EventEmitter {
       this.startupTimeout = config.startupTimeout;
     }
     this.middlewareParams = new MiddlewareParams();
-    this.middlewareParams.endpoint = config.endpoint || '/graphql';
+    this.middlewareParams.endpoints = config.endpoints || ['/graphql'];
     this.middlewareParams.psk = randomBytes(48).toString('hex');
     this.middlewareParams.dumpTraffic = config.dumpTraffic || false;
     this.useConfigPrecisely = config.useConfigPrecisely || false;
@@ -245,7 +245,7 @@ export class Engine extends EventEmitter {
     }
     this.running = true;
     let config = this.config;
-    const endpoint = this.middlewareParams.endpoint;
+    const endpoints = this.middlewareParams.endpoints;
     const graphqlPort = this.graphqlPort;
 
     if (typeof config === 'string') {
@@ -261,7 +261,7 @@ export class Engine extends EventEmitter {
     const frontend = Object.assign(
       {
         host: '127.0.0.1',
-        endpoints: [endpoint],
+        endpoints: endpoints,
         port: 0,
       },
       this.frontendParams,
@@ -289,7 +289,7 @@ export class Engine extends EventEmitter {
       }
       const origin = Object.assign({}, this.originParams) as OriginConfig;
       const defaultHttpOrigin = {
-        url: 'http://127.0.0.1:' + graphqlPort + endpoint,
+        url: 'http://127.0.0.1:' + graphqlPort + endpoints[0],
         headerSecret: this.middlewareParams.psk,
       };
       if (typeof origin.http === 'undefined') {
