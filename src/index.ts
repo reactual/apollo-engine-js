@@ -36,11 +36,15 @@ export interface FrontendConfig extends FrontendParams {
   host: string;
   endpoint?: string;
   endpoints?: string[];
+  endpointMap?: {
+    [endpoint: string] : string;
+  };
   port: number;
 }
 
 // Shortcut to user-configurable fields of EngineConfig "origin" in default double-proxy mode
 export interface OriginParams {
+  name?: string;
   requestTimeout?: string;
   maxConcurrentRequests?: number;
   supportsBatch?: boolean;
@@ -123,7 +127,11 @@ export interface EngineConfig {
 // *****************************************************************************
 export interface SideloadConfig {
   engineConfig: string | EngineConfig;
+  // If you would like to proxy incoming requests to multiple multiple endpoints to
+  // one GraphQL server, this will proxy all matching requests to the first endpoint
+  // specified in `endpoints`.
   endpoints?: string[];
+  endpoint?: string;
   useConfigPrecisely?: boolean;
   graphqlPort?: number;
   // Should all requests/responses to the proxy be written to stdout?
@@ -139,6 +147,7 @@ export interface SideloadConfig {
 const sideloadConfigKeys = new Set([
   'engineConfig',
   'endpoint',
+  'endpoints',
   'useConfigPrecisely',
   'graphqlPort',
   'dumpTraffic',
@@ -185,7 +194,7 @@ export class Engine extends EventEmitter {
       this.startupTimeout = config.startupTimeout;
     }
     this.middlewareParams = new MiddlewareParams();
-    this.middlewareParams.endpoints = config.endpoints || ['/graphql'];
+    this.middlewareParams.endpoints = config.endpoints || [config.endpoint || '/graphql'];
     this.middlewareParams.psk = randomBytes(48).toString('hex');
     this.middlewareParams.dumpTraffic = config.dumpTraffic || false;
     this.useConfigPrecisely = config.useConfigPrecisely || false;
@@ -255,17 +264,25 @@ export class Engine extends EventEmitter {
     // Customize configuration:
     const childConfig = Object.assign({}, config as EngineConfig);
 
+    const endpointMap : any  = {}
+    endpoints.forEach(endpoint => {
+      endpointMap[endpoint] = endpoint;
+    })
+
     // Inject frontend, that we will route for users that are allowing us to
     // use the default configurations (i.e. users that have not set useConfigPrecisely
     // to true)
     const frontend = Object.assign(
       {
         host: '127.0.0.1',
-        endpoints: endpoints,
+        endpointMap: endpointMap,
         port: 0,
       },
       this.frontendParams,
-    );
+    ) as FrontendConfig;
+    if (frontend.endpoint || frontend.endpoints) {
+      delete frontend.endpointMap;
+    }
     if (typeof childConfig.frontends === 'undefined') {
       if (this.useConfigPrecisely) {
         throw new Error(
@@ -287,17 +304,19 @@ export class Engine extends EventEmitter {
             `to false.`,
         );
       }
-      const origin = Object.assign({}, this.originParams) as OriginConfig;
-      const defaultHttpOrigin = {
-        url: 'http://127.0.0.1:' + graphqlPort + endpoints[0],
-        headerSecret: this.middlewareParams.psk,
-      };
-      if (typeof origin.http === 'undefined') {
-        origin.http = defaultHttpOrigin;
-      } else {
-        origin.http = Object.assign({}, defaultHttpOrigin, origin.http);
-      }
-      childConfig.origins = [origin];
+      const defaultOrigins : any[] = [];
+      endpoints.forEach(endpoint => {
+        const origin = Object.assign({}, this.originParams) as OriginConfig;
+        origin.http = Object.assign({},
+          {
+            url: `http://127.0.0.1:${graphqlPort}${endpoint}`,
+            headerSecret: this.middlewareParams.psk,
+          },
+          origin.http || {});
+          origin['name'] = endpoint;
+        defaultOrigins.push(origin)
+      });
+      childConfig.origins = defaultOrigins;
     } else if (!this.useConfigPrecisely) {
       // Extend any existing HTTP origins with the chosen PSK:
       // (trust it to fill other fields correctly)

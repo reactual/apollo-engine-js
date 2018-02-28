@@ -129,15 +129,16 @@ function proxyRequest(
 // If the input to the returned function matches an endpoint, the matched endpoint is returned, otherwise ""
 function endpointsMatcher(endpoints: string[]) : (endpointToCheck: string) => string {
     return (endpointToCheck) => {
+        let matchedEndpoint = ""
         endpoints.forEach(allowedEndpoint => {
             // Matches the strict endpoint, which can be followed by a forward slash or a back slash exactly once,
             // and allows for a query string as well.
             const endpointRegex = new RegExp(`^${allowedEndpoint}(/?|\\\\)($|\\?.*)`)
             if(endpointRegex.test(endpointToCheck)) {
-                return allowedEndpoint
+                matchedEndpoint = allowedEndpoint;
             }
         });
-        return ""
+        return matchedEndpoint
     }
 }
 

@@ -13,7 +13,7 @@ const { Engine } = require('../lib/index');
 const { schema, rootValue, verifyEndpointSuccess } = require('./schema');
 const { testEngine } = require('./test');
 
-describe.only('engine', () => {
+describe('engine', () => {
   let app,
     engine = null,
     didHideProxyError,
@@ -59,20 +59,27 @@ describe.only('engine', () => {
   });
 
   function gqlServer(path) {
-    path = path || '/graphql';
-    app.get(`${path}/ping`, (req, res) => {
-      res.json({ pong: true });
-    });
+    return gqlServerForMultiplePaths([path || '/graphql']);
+  }
 
-    app.use(
-      path,
-      bodyParser.json(),
-      graphqlExpress({
-        schema: schema,
-        rootValue: rootValue,
-        tracing: true,
-      }),
-    );
+  function gqlServerForMultiplePaths(paths) {
+    paths.forEach(
+      path => {
+        app.get(`${path}/ping`, (req, res) => {
+          res.json({ pong: true });
+        });
+
+        app.use(
+          path,
+          bodyParser.json(),
+          graphqlExpress({
+            schema: schema,
+            rootValue: rootValue,
+            tracing: true,
+          }),
+        );
+      }
+    )
 
     return http
       .createServer(app)
@@ -98,7 +105,7 @@ describe.only('engine', () => {
     it('allows reading config from file', async () => {
       // Install middleware before GraphQL handler:
       engine = new Engine({
-        endpoint: '/graphql',
+        endpoints: ['/graphql'],
         engineConfig: 'test/engine.json',
         graphqlPort: 1,
         proxyStderrStream: hideProxyErrorStream(),
@@ -125,7 +132,7 @@ describe.only('engine', () => {
             frontends: [
               {
                 host: '127.0.0.1',
-                endpoint: '/graphql',
+                endpointMap: { '/graphql': '/graphql' },
                 port: extraPort,
               },
             ],
@@ -155,6 +162,7 @@ describe.only('engine', () => {
               },
             },
             {
+              name: '/graphql',
               http: {
                 url: `http://localhost:${port}/graphql`,
               },
@@ -180,6 +188,30 @@ describe.only('engine', () => {
         .listen(0);
     });
 
+    it('successfully routes multiple endpoints with middleware', async () => {
+      const endpoints = ['/graphql', '/api/graphql', '/test/graphql'];
+
+      engine = new Engine({
+        graphqlPort: 1,
+        endpoints: endpoints,
+        engineConfig: {
+          reporting: {
+            disabled: true,
+          }
+        }
+      });
+      app.use(engine.expressMiddleware());
+
+      let port = gqlServerForMultiplePaths(endpoints);
+      engine.graphqlPort = port;
+
+      await engine.start();
+      // Unfortunately it's annoying to do a forEach here due to async / await
+      for (let i; i < endpoints.length; i++) {
+        await verifyEndpointSuccess(`http://localhost:${port}${endpoints[i]}`)
+      }
+    });
+
     it('can be configured in single proxy mode', async () => {
       // When using singleProxy the middleware is not required
       let port = gqlServer('/graphql');
@@ -198,7 +230,7 @@ describe.only('engine', () => {
       await verifyEndpointSuccess('http://localhost:3000/graphql', false);
     });
 
-    it('can be configured in single proxy mode to use multiple endpoints', async () => {
+    it('can be configured in single proxy mode with endpoint map', async () => {
       let testPort = gqlServer('/test/graphql');
       let defaultPort = gqlServer('/graphql');
       engine = new Engine({
@@ -319,6 +351,21 @@ describe.only('engine', () => {
       });
 
       assert.strictEqual(userSpecifiedUrl, engine.originParams.http.url);
+    });
+
+    it('can be configured to use multiple endpoints with middleware', async () => {
+      const endpoints = ['/graphql', '/api/graphql'];
+      engine = new Engine({
+        graphqlPort: 1,
+        endpoints: endpoints,
+        engineConfig: {
+          reporting: {
+            disabled: true,
+          }
+        }
+      });
+
+      assert.strictEqual(endpoints, engine.middlewareParams.endpoints);
     });
 
     it('can be configured to use custom stdout', async () => {
