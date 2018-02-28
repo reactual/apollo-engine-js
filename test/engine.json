@@ -2,18 +2,5 @@
   "apiKey": "faked",
   "reporting": {
     "disabled": true
-  },
-  "logging": {
-    "level": "WARN",
-    "request": {
-      "destination": "stdout",
-      "requestHeaders": [
-        "Content-Type"
-      ],
-      "responseHeaders": [
-        "Content-Type",
-        "Date"
-      ]
-    }
   }
 }

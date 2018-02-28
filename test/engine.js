@@ -15,7 +15,10 @@ const { testEngine } = require('./test');
 
 describe('engine', () => {
   let app,
-    engine = null;
+    engine = null,
+    didHideProxyError,
+    hideProxyErrorStream,
+    hiddenProxyError;
   beforeEach(() => {
     app = express();
   });
@@ -27,6 +30,31 @@ describe('engine', () => {
         assert.isFalse(isRunning(pid));
       }
       engine = null;
+    }
+  });
+
+  // Allow tests that run engineproxy to hide its output on success but show its
+  // output on failure.
+  beforeEach(() => {
+    didHideProxyError = false;
+    hiddenProxyError = '';
+    hideProxyErrorStream = () => {
+      if (didHideProxyError) {
+        throw new Error('Can only call hideProxyErrorStream once per test');
+      }
+      didHideProxyError = true;
+      return new Writable({
+        write(chunk, encoding, callback) {
+          hiddenProxyError += chunk.toString();
+        },
+      });
+    };
+  });
+  afterEach(function() {
+    // we need to access 'this', so no arrow function
+    if (didHideProxyError && this.currentTest.state !== 'passed') {
+      console.error('engineproxy error output:');
+      console.error(hiddenProxyError);
     }
   });
 
@@ -52,8 +80,8 @@ describe('engine', () => {
       .address().port;
   }
 
-  function setupEngine(path) {
-    engine = testEngine(path);
+  function setupEngine(path, options = {}) {
+    engine = testEngine(path, options);
     app.use(engine.expressMiddleware());
 
     engine.graphqlPort = gqlServer(path);
@@ -67,12 +95,13 @@ describe('engine', () => {
         /Unknown option 'unknownKey'/,
       );
     });
-    it('allows reading from file proxy', async () => {
+    it('allows reading config from file', async () => {
       // Install middleware before GraphQL handler:
       engine = new Engine({
         endpoint: '/graphql',
         engineConfig: 'test/engine.json',
         graphqlPort: 1,
+        proxyStderrStream: hideProxyErrorStream(),
       });
       app.use(engine.expressMiddleware());
 
@@ -109,6 +138,7 @@ describe('engine', () => {
             endpoint: '/graphql',
             engineConfig,
             graphqlPort: 1,
+            proxyStderrStream: hideProxyErrorStream(),
           });
           app.use(engine.expressMiddleware());
 
@@ -155,12 +185,13 @@ describe('engine', () => {
       let port = gqlServer('/graphql');
 
       engine = new Engine({
-        engineConfig: 'test/engine.json',
+        engineConfig: { apiKey: 'faked', reporting: { disabled: true } },
         graphqlPort: port,
         frontend: {
           host: '127.0.0.1',
           port: 3000,
         },
+        proxyStderrStream: hideProxyErrorStream(),
       });
 
       await engine.start();
@@ -203,6 +234,7 @@ describe('engine', () => {
             noTraceVariables: true,
           },
         },
+        proxyStderrStream: hideProxyErrorStream(),
       });
 
       await engine.start();
@@ -238,6 +270,7 @@ describe('engine', () => {
             disabled: true,
           },
         },
+        proxyStderrStream: hideProxyErrorStream(),
       });
 
       await engine.start();
@@ -347,11 +380,15 @@ describe('engine', () => {
       assert.isTrue(isRunning(childPid));
 
       // Directly kill process, wait for notice another process has started:
+      const restartingPromise = new Promise(resolve => {
+        engine.once('restarting', resolve);
+      });
       const restartPromise = new Promise(resolve => {
         engine.once('start', resolve);
       });
       engine.child.kill('SIGKILL');
       await restartPromise;
+      await restartingPromise;
 
       const restartedPid = engine.child.pid;
       assert.notEqual(childPid, restartedPid);
@@ -362,7 +399,7 @@ describe('engine', () => {
     });
 
     it('is non-invasive on invalid config', async () => {
-      setupEngine();
+      setupEngine('/graphql', { proxyStderrStream: hideProxyErrorStream() });
       engine.startupTimeout = 100;
       engine.config.logging.level = 'invalid';
 

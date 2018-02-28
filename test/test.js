@@ -1,9 +1,10 @@
 const { Engine } = require('../lib/index');
 
-exports.testEngine = path => {
+exports.testEngine = (path, options = {}) => {
   path = path || '/graphql';
 
   return new Engine({
+    ...options,
     endpoint: path,
     engineConfig: {
       logging: {
