@@ -193,6 +193,9 @@ describe('engine', () => {
         graphqlPort: 1,
         endpoints: endpoints,
         engineConfig: {
+          logging: {
+            level: 'WARN'
+          },
           reporting: {
             disabled: true,
           },
