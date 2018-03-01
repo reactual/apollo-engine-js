@@ -10,7 +10,9 @@ which has its own detailed [Release
 Notes](https://www.apollographql.com/docs/engine/proxy-release-notes.html) in
 the Engine documenation.
 
-### vNext (probably 0.9.0)
+### vNext
+
+### 0.9.0 - 2018-03-01
 - Upgrade Engine Proxy to
   [`2018.02-90-g65206681c`](https://www.apollographql.com/docs/engine/proxy-release-notes.html#v2018.02-90-g65206681c),
   including changes in `2018.02-84-g7a295e631` and `2018.02-50-gef2fc6d4e`.
