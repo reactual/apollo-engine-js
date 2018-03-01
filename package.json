@@ -29,9 +29,9 @@
     "request": "^2.81.0"
   },
   "optionalDependencies": {
-    "apollo-engine-binary-darwin": "0.2018.2-86-gdc94bb9ba",
-    "apollo-engine-binary-linux": "0.2018.2-86-gdc94bb9ba",
-    "apollo-engine-binary-windows": "0.2018.2-86-gdc94bb9ba"
+    "apollo-engine-binary-darwin": "0.2018.2-90-g65206681c",
+    "apollo-engine-binary-linux": "0.2018.2-90-g65206681c",
+    "apollo-engine-binary-windows": "0.2018.2-90-g65206681c"
   },
   "devDependencies": {
     "@types/express": "^4.0.36",
@@ -62,6 +62,7 @@
     "mocha": "^3.5.3",
     "request-promise-native": "^1.0.5",
     "sinon": "^4.4.2",
+    "tmp": "0.0.33",
     "tslint": "^5.8.0",
     "typescript": "^2.4.1"
   },

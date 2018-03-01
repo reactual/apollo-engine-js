@@ -4,7 +4,8 @@ const { graphqlExpress } = require('apollo-server-express');
 const bodyParser = require('body-parser');
 const { createServer } = require('net');
 const { Writable } = require('stream');
-
+const { writeFileSync, unlinkSync, renameSync, readFileSync } = require('fs');
+const tmp = require('tmp');
 const { assert } = require('chai');
 const isRunning = require('is-running');
 
@@ -110,6 +111,73 @@ describe('engine', () => {
 
       await engine.start();
       return verifyEndpointSuccess(`http://localhost:${port}/graphql`, false);
+    });
+
+    it('allows reloading config from file with useConfigPrecisely', async () => {
+      // Make a temp filename for the config we're going to reload, and for a
+      // log file we're going to eventually look for.
+      const tmpConfig = tmp.fileSync({ discardDescriptor: true });
+      const tmpLog = tmp.fileSync({ discardDescriptor: true });
+      unlinkSync(tmpLog.name);
+
+      const defaultPort = gqlServer('/graphql');
+
+      // Write a basic config file out to disk. It does not have request logging
+      // turned on.
+      const config = {
+        apiKey: 'faked',
+        reporting: {
+          disabled: true,
+        },
+        origins: [
+          {
+            http: {
+              url: `http://127.0.0.1:${defaultPort}/graphql`,
+            },
+          },
+        ],
+        frontends: [
+          {
+            host: '127.0.0.1',
+            port: 3000,
+            endpoint: '/graphql',
+          },
+        ],
+      };
+      writeFileSync(tmpConfig.name, JSON.stringify(config));
+
+      // Run Engine. Ask it to check the config file for reloads every 5ms
+      // instead of the default 5s, for a faster test.
+      engine = new Engine({
+        endpoint: '/graphql',
+        engineConfig: tmpConfig.name,
+        useConfigPrecisely: true,
+        graphqlPort: defaultPort,
+        proxyStderrStream: hideProxyErrorStream(),
+      });
+      engine.extraArgs = ['-config-reload-file=5ms'];
+      app.use(engine.expressMiddleware());
+
+      // Make sure it runs properly.
+      await engine.start();
+      await verifyEndpointSuccess(`http://localhost:3000/graphql`, false);
+
+      // Add request logging to the config file. Write it out (atomically!) and
+      // wait twice the -config-reload-file amount of time.
+      config.logging = {
+        request: {
+          destination: tmpLog.name,
+        },
+      };
+      writeFileSync(tmpConfig.name + '.atomic', JSON.stringify(config));
+      renameSync(tmpConfig.name + '.atomic', tmpConfig.name);
+      await new Promise(resolve => setTimeout(resolve, 10));
+
+      // Make a request, which should be logged.
+      await verifyEndpointSuccess(`http://localhost:3000/graphql`, false);
+      // Wait a moment and verify the request log exists.
+      await new Promise(resolve => setTimeout(resolve, 10));
+      readFileSync(tmpLog.name);
     });
 
     it('appends configuration', done => {

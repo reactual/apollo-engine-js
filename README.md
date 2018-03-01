@@ -21,7 +21,9 @@ import { Engine } from 'apollo-engine';
 // create new engine instance from JS config object
 const engine = new Engine({ engineConfig: { ... } });
 
-// create new engine instance from file
+// create new engine instance from file. (If you are also using the single
+// proxy mode with useConfigPrecisely, the Engine Proxy will reload the
+// config file when it changes.)
 const engine = new Engine({ engineConfig: 'path/to/config.json' });
 
 await engine.start();
@@ -58,18 +60,22 @@ This is the minimum necessary information in the engine configuration object to 
   },
   "endpoint": "/graphql",           // Path of GraphQL endpoint, normally /graphql.
   "graphqlPort": process.env.PORT,  // Port that the NodeJS server is running on.
-  "dumpTraffic": false,             // If true, HTTP requests and responses will be dumped to stdout. Should only be used if debugging an issue.
-  "startupTimeout": 5000,           // If >0, .start() will throw if the proxy binary does not finish startup within the given number of milliseconds.
-                                    // Defaults to 5000ms if not set.
-  "useConfigPrecisely": true        // For use with single proxy mode. Set this to true for the spawned Engine proxy process to use the engineConfig object specified in the constructor. All other fields will be ignored.
+  "startupTimeout": 5000,           // If >0, .start() will throw if the proxy binary does not finish
+                                    // startup within the given number of milliseconds. Defaults to 5000ms.
+  "useConfigPrecisely": true        // For use with single proxy mode. Set this to true for the spawned
+                                    // Engine Proxy process to use the engineConfig object
+                                    // specified in the constructor without automatically setting up an
+                                    // origin and frontend.
 
   // Shortcuts to "origins" in EngineConfig
   "origin": {
     "requestTimeout": "5s",          // Time to wait for the Node server to respond to the Engine Proxy.
-    "maxConcurrentRequests": 9999,  // The maximum number of concurrent GraphQL requests to make back to the Node server.
-    "supportsBatch": true,          // If false, GraphQL query batches will be broken up and processed in parallel. If true, they are batch processed.
-    "overrideRequestHeaders": {     // Headers to replace or add in requests to your origin. May be useful for virtually-hosted GraphQL servers.
-      "Host": "127.0.0.1:8080",
+    "maxConcurrentRequests": 9999,   // The maximum number of concurrent GraphQL requests to make back
+                                     // to the Node server.
+    "supportsBatch": true,           // If false, GraphQL query batches will be broken up and processed
+                                     // in parallel. If true, they are batch processed.
+    "overrideRequestHeaders": {      // Headers to replace or add in requests to your origin. May be useful
+      "Host": "127.0.0.1:8080",      // for virtually-hosted GraphQL servers.
       "X-New-Header": "xxxxxxxxx"
     }
   },
@@ -81,5 +87,10 @@ This is the minimum necessary information in the engine configuration object to 
       "blacklist": ["tracing"],                 // Extensions to block from being served to clients, even if requested with "includeInResponse".
     }
   },
+
+  proxyStdoutStream: stream,   // Redirect the Proxy's standard output to this Writable stream.
+  proxyStderrStream: stream,   // Redirect the Proxy's standard error to this Writable stream.
+  "dumpTraffic": false,             // If true, HTTP requests and responses will be dumped to stdout.
+                                    // Should only be used if debugging an issue.
 }
 ```

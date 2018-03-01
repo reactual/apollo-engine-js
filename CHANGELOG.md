@@ -12,8 +12,8 @@ the Engine documenation.
 
 ### vNext (probably 0.9.0)
 - Upgrade Engine Proxy to
-  [`2018.02-84-g7a295e631`](https://www.apollographql.com/docs/engine/proxy-release-notes.html#v2018.02-84-g7a295e631),
-  including changes in `2018.02-50-gef2fc6d4e`.
+  [`2018.02-90-g65206681c`](https://www.apollographql.com/docs/engine/proxy-release-notes.html#v2018.02-90-g65206681c),
+  including changes in `2018.02-84-g7a295e631` and `2018.02-50-gef2fc6d4e`.
 - Simplify how the apollo-engine npm module communicates with the Engine Proxy
   binary.  **Backwards-incompatible changes**:
   + The `logger` option to `new Engine` added in 0.8.9 no longer exists. It is
@@ -21,7 +21,12 @@ the Engine documenation.
     a `restarting` event on the `Engine` object.
   + The default log style is now the same as in the Docker container release of
     engineproxy: textual logs over stdout, instead of JSON over stderr.
-- allowFullConfiguration option -- XXX this may need to be improved before release
+- New `useConfigPrecisely` option (for single proxy mode) which uses the
+  exact `engineConfig` passed in (which must contain `origins` and `frontends`
+  fields) without modification. If you use this option and specify
+  `engineConfig` as a filename, the Proxy will reload your config file if you
+  edit it.
+- `new Engine` now throws if given unknown top-level options.
 
 ### 0.8.10 - 2018-02-12
 - Upgrade Engine Proxy to

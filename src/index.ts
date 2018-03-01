@@ -162,6 +162,7 @@ export class Engine extends EventEmitter {
   private startupTimeout: number;
   private originParams: OriginParams;
   private frontendParams: FrontendParams;
+  private extraArgs?: string[]; // for testing
 
   public constructor(config: SideloadConfig) {
     super();
@@ -244,70 +245,82 @@ export class Engine extends EventEmitter {
       throw new Error('Only call start() on an engine object once');
     }
     this.running = true;
-    let config = this.config;
+    let finalConfig: string | EngineConfig;
     const endpoint = this.middlewareParams.endpoint;
     const graphqlPort = this.graphqlPort;
 
-    if (typeof config === 'string') {
-      config = JSON.parse(readFileSync(config as string, 'utf8') as string);
-    }
-
-    // Customize configuration:
-    const childConfig = Object.assign({}, config as EngineConfig);
-
-    // Inject frontend, that we will route for users that are allowing us to
-    // use the default configurations (i.e. users that have not set useConfigPrecisely
-    // to true)
-    const frontend = Object.assign(
-      {
-        host: '127.0.0.1',
-        endpoints: [endpoint],
-        port: 0,
-      },
-      this.frontendParams,
-    );
-    if (typeof childConfig.frontends === 'undefined') {
-      if (this.useConfigPrecisely) {
-        throw new Error(
-          `Cannot run Apollo Engine with no frontend. Either specify ` +
-            `at least one frontend in your engine-config or set useConfigPrecisely ` +
-            `to false.`,
-        );
-      }
-      childConfig.frontends = [frontend];
-    } else if (!this.useConfigPrecisely) {
-      childConfig.frontends.push(frontend);
-    }
-
-    if (typeof childConfig.origins === 'undefined') {
-      if (this.useConfigPrecisely) {
-        throw new Error(
-          `Cannot run Apollo Engine with no origin. Either specify ` +
-            `at least one origin in your engine-config or set useConfigPrecisely ` +
-            `to false.`,
-        );
-      }
-      const origin = Object.assign({}, this.originParams) as OriginConfig;
-      const defaultHttpOrigin = {
-        url: 'http://127.0.0.1:' + graphqlPort + endpoint,
-        headerSecret: this.middlewareParams.psk,
-      };
-      if (typeof origin.http === 'undefined') {
-        origin.http = defaultHttpOrigin;
-      } else {
-        origin.http = Object.assign({}, defaultHttpOrigin, origin.http);
-      }
-      childConfig.origins = [origin];
-    } else if (!this.useConfigPrecisely) {
-      // Extend any existing HTTP origins with the chosen PSK:
-      // (trust it to fill other fields correctly)
-      childConfig.origins.forEach(origin => {
-        if (typeof origin.http === 'object') {
-          Object.assign(origin.http, {
-            headerSecret: this.middlewareParams.psk,
-          });
+    if (this.useConfigPrecisely) {
+      // If engineConfig is provided to us as an object rather than a filename,
+      // validate that it contains the two required fields, to give a better
+      // error message than engineproxy's (since engineproxy's won't suggest
+      // removing useConfigPrecisely).
+      if (typeof this.config !== 'string') {
+        if (this.config.frontends === undefined) {
+          throw new Error(
+            `Cannot run Apollo Engine with no frontend. Either specify ` +
+              `at least one frontend in your engine-config or set useConfigPrecisely ` +
+              `to false.`,
+          );
         }
-      });
+        if (this.config.origins === undefined) {
+          throw new Error(
+            `Cannot run Apollo Engine with no origin. Either specify ` +
+              `at least one origin in your engine-config or set useConfigPrecisely ` +
+              `to false.`,
+          );
+        }
+      }
+      finalConfig = this.config;
+    } else {
+      let ourConfig: EngineConfig;
+      if (typeof this.config === 'string') {
+        ourConfig = JSON.parse(readFileSync(
+          this.config as string,
+          'utf8',
+        ) as string);
+      } else {
+        ourConfig = Object.assign({}, this.config as EngineConfig);
+      }
+
+      // Inject frontend.
+      const frontend = Object.assign(
+        {
+          host: '127.0.0.1',
+          endpoints: [endpoint],
+          port: 0,
+        },
+        this.frontendParams,
+      );
+      if (ourConfig.frontends === undefined) {
+        ourConfig.frontends = [frontend];
+      } else {
+        ourConfig.frontends.push(frontend);
+      }
+
+      if (ourConfig.origins === undefined) {
+        const origin = Object.assign({}, this.originParams) as OriginConfig;
+        const defaultHttpOrigin = {
+          url: 'http://127.0.0.1:' + graphqlPort + endpoint,
+          headerSecret: this.middlewareParams.psk,
+        };
+        if (origin.http === undefined) {
+          origin.http = defaultHttpOrigin;
+        } else {
+          origin.http = Object.assign(defaultHttpOrigin, origin.http);
+        }
+        ourConfig.origins = [origin];
+      } else {
+        // Extend any existing HTTP origins with the chosen PSK:
+        // (trust it to fill other fields correctly)
+        ourConfig.origins.forEach(origin => {
+          if (typeof origin.http === 'object') {
+            Object.assign(origin.http, {
+              headerSecret: this.middlewareParams.psk,
+            });
+          }
+        });
+      }
+      finalConfig = ourConfig;
     }
 
     const spawnChild = () => {
@@ -337,12 +350,25 @@ export class Engine extends EventEmitter {
         stdio[2] = 'pipe';
       }
 
-      const child = spawn(this.binary, ['-config=env'], {
+      const args: string[] = [];
+      const env = Object.assign({}, process.env, {
+        LISTENING_REPORTER_FD: '3',
+      });
+      if (typeof finalConfig === 'string') {
+        // Filename with useConfigPrecisely.
+        args.push(`-config=${finalConfig}`);
+      } else {
+        args.push(`-config=env`);
+        env.ENGINE_CONFIG = JSON.stringify(finalConfig);
+      }
+
+      if (this.extraArgs) {
+        this.extraArgs.forEach(a => args.push(a));
+      }
+
+      const child = spawn(this.binary, args, {
         stdio,
-        env: Object.assign({}, process.env, {
-          LISTENING_REPORTER_FD: '3',
-          ENGINE_CONFIG: JSON.stringify(childConfig),
-        }),
+        env,
       });
       this.child = child;
 
