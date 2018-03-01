@@ -24,7 +24,7 @@ const engine = new Engine({ engineConfig: { ... } });
 // create new engine instance from file
 const engine = new Engine({ engineConfig: 'path/to/config.json' });
 
-await engine.start();
+engine.start();
 app.use(engine.expressMiddleware());
 
 // ...
