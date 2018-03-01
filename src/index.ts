@@ -124,7 +124,7 @@ export interface EngineConfig {
 export interface SideloadConfig {
   engineConfig: string | EngineConfig;
   endpoint?: string;
-  useConfigPrecisely?: boolean;
+  useConfigPrecisely?: boolean;  // Don't use: going away in next version.
   graphqlPort?: number;
   // Should all requests/responses to the proxy be written to stdout?
   dumpTraffic?: boolean;

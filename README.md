@@ -21,9 +21,7 @@ import { Engine } from 'apollo-engine';
 // create new engine instance from JS config object
 const engine = new Engine({ engineConfig: { ... } });
 
-// create new engine instance from file. (If you are also using the single
-// proxy mode with useConfigPrecisely, the Engine Proxy will reload the
-// config file when it changes.)
+// create new engine instance from file.
 const engine = new Engine({ engineConfig: 'path/to/config.json' });
 
 await engine.start();
@@ -62,10 +60,6 @@ This is the minimum necessary information in the engine configuration object to 
   "graphqlPort": process.env.PORT,  // Port that the NodeJS server is running on.
   "startupTimeout": 5000,           // If >0, .start() will throw if the proxy binary does not finish
                                     // startup within the given number of milliseconds. Defaults to 5000ms.
-  "useConfigPrecisely": true        // For use with single proxy mode. Set this to true for the spawned
-                                    // Engine Proxy process to use the engineConfig object
-                                    // specified in the constructor without automatically setting up an
-                                    // origin and frontend.
 
   // Shortcuts to "origins" in EngineConfig
   "origin": {

@@ -21,11 +21,6 @@ the Engine documenation.
     a `restarting` event on the `Engine` object.
   + The default log style is now the same as in the Docker container release of
     engineproxy: textual logs over stdout, instead of JSON over stderr.
-- New `useConfigPrecisely` option (for single proxy mode) which uses the
-  exact `engineConfig` passed in (which must contain `origins` and `frontends`
-  fields) without modification. If you use this option and specify
-  `engineConfig` as a filename, the Proxy will reload your config file if you
-  edit it.
 - `new Engine` now throws if given unknown top-level options.
 
 ### 0.8.10 - 2018-02-12
