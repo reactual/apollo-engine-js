@@ -11,9 +11,15 @@ export class MiddlewareParams {
   public uri: string;
   public psk: string;
   public dumpTraffic: boolean;
+  public usingMiddleware: boolean;
 }
 
+export const notAllowedError = new Error(
+  "Cannot use middleware with 'usingMiddleware' set to false.",
+);
+
 export function makeMicroMiddleware(params: MiddlewareParams) {
+  if (!params.usingMiddleware) throw notAllowedError;
   const endpointChecker = endpointsMatcher(params.endpoints);
   return function(fn: Function) {
     return function(req: IncomingMessage, res: ServerResponse) {
@@ -32,6 +38,7 @@ export function makeMicroMiddleware(params: MiddlewareParams) {
 }
 
 export function makeExpressMiddleware(params: MiddlewareParams) {
+  if (!params.usingMiddleware) throw notAllowedError;
   const endpointChecker = endpointsMatcher(params.endpoints);
   return function(req: Request, res: Response, next: NextFunction) {
     const matchingEndpoint = endpointChecker(req.originalUrl);
@@ -47,6 +54,7 @@ export function makeExpressMiddleware(params: MiddlewareParams) {
 }
 
 export function makeConnectMiddleware(params: MiddlewareParams) {
+  if (!params.usingMiddleware) throw notAllowedError;
   const endpointChecker = endpointsMatcher(params.endpoints);
   return function(req: any, res: any, next: any) {
     const matchingEndpoint = endpointChecker(req.originalUrl);
@@ -61,9 +69,8 @@ export function makeConnectMiddleware(params: MiddlewareParams) {
 }
 
 export function makeKoaMiddleware(params: MiddlewareParams) {
-  const endpointChecker = endpointsMatcher(params.endpoints);
+  if (!params.usingMiddleware) throw notAllowedError;
   return function(ctx: Context, next: () => Promise<any>) {
-    const matchingEndpoint = endpointChecker(ctx.path);
     if (!params.uri || !params.endpoints.includes(ctx.path)) return next();
     else if (ctx.req.headers['x-engine-from'] === params.psk) return next();
     else if (ctx.req.method !== 'GET' && ctx.req.method !== 'POST')
@@ -87,6 +94,7 @@ export function makeKoaMiddleware(params: MiddlewareParams) {
 }
 
 export function instrumentHapi(server: Server, params: MiddlewareParams) {
+  if (!params.usingMiddleware) throw notAllowedError;
   server.ext('onRequest', (req, reply) => {
     if (!params.uri) return reply.continue();
     const path = req.url.pathname;
@@ -134,18 +142,21 @@ function proxyRequest(
 // If the input to the returned function matches an endpoint, the matched endpoint is returned, otherwise ""
 function endpointsMatcher(
   endpoints: string[],
-): (endpointToCheck: string) => string {
+): (endpointToCheck: string) => string | undefined {
   return endpointToCheck => {
-    let matchedEndpoint = '';
-    endpoints.forEach(allowedEndpoint => {
-      // Matches the strict endpoint, which can be followed by a forward slash or a back slash exactly once,
-      // and allows for a query string as well.
-      const endpointRegex = new RegExp(`^${allowedEndpoint}(/?|\\\\)($|\\?.*)`);
-      if (endpointRegex.test(endpointToCheck)) {
-        matchedEndpoint = allowedEndpoint;
+    return endpoints.find(function(allowedEndpoint) {
+      if (endpointToCheck.startsWith(allowedEndpoint)) {
+        const rest = endpointToCheck.slice(allowedEndpoint.length);
+        return (
+          rest === '' ||
+          rest === '/' ||
+          rest.startsWith('?') ||
+          rest.startsWith('/?')
+        );
+      } else {
+        return false;
       }
     });
-    return matchedEndpoint;
   };
 }
 

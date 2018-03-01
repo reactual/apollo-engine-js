@@ -36,9 +36,7 @@ export interface FrontendConfig extends FrontendParams {
   host: string;
   endpoint?: string;
   endpoints?: string[];
-  endpointMap?: {
-    [endpoint: string]: string;
-  };
+  endpointMap?: Record<string, string>;
   port: number;
 }
 
@@ -133,9 +131,9 @@ export interface SideloadConfig {
   // two origins will be created named '/test' and '/graphql' mapped to the
   // respective URLs.
   endpoints?: string[];
-  // Shortcut to setting `endpoints : ['endpoint']` for backwards compatability.
+  // Shortcut to setting `endpoints : [endpoint]` for backwards compatability.
   endpoint?: string;
-  useConfigPrecisely?: boolean;
+  usingMiddleware?: boolean;
   graphqlPort?: number;
   // Should all requests/responses to the proxy be written to stdout?
   dumpTraffic?: boolean;
@@ -151,7 +149,7 @@ const sideloadConfigKeys = new Set([
   'engineConfig',
   'endpoint',
   'endpoints',
-  'useConfigPrecisely',
+  'usingMiddleware',
   'graphqlPort',
   'dumpTraffic',
   'startupTimeout',
@@ -166,7 +164,7 @@ export class Engine extends EventEmitter {
   private proxyStdoutStream?: NodeJS.WritableStream;
   private proxyStderrStream?: NodeJS.WritableStream;
   private graphqlPort?: number;
-  private useConfigPrecisely: boolean;
+  private usingMiddleware?: boolean;
   private binary: string;
   private config: string | EngineConfig;
   private middlewareParams: MiddlewareParams;
@@ -202,7 +200,10 @@ export class Engine extends EventEmitter {
     ];
     this.middlewareParams.psk = randomBytes(48).toString('hex');
     this.middlewareParams.dumpTraffic = config.dumpTraffic || false;
-    this.useConfigPrecisely = config.useConfigPrecisely || false;
+    if (typeof config.usingMiddleware === 'undefined')
+      config.usingMiddleware = true;
+    this.usingMiddleware = config.usingMiddleware!;
+    this.middlewareParams.usingMiddleware = this.usingMiddleware;
     this.originParams = config.origin || {};
     this.frontendParams = config.frontend || {};
     if (config.proxyStdoutStream) {
@@ -217,7 +218,7 @@ export class Engine extends EventEmitter {
       const port: any = process.env.PORT;
       if (isFinite(port)) {
         this.graphqlPort = parseInt(port, 10);
-      } else if (!this.useConfigPrecisely) {
+      } else if (this.usingMiddleware) {
         throw new Error(
           `Neither 'graphqlPort' nor process.env.PORT is set. ` +
             `In order for Apollo Engine to act as a proxy for your GraphQL server, ` +
@@ -269,66 +270,66 @@ export class Engine extends EventEmitter {
     // Customize configuration:
     const childConfig = Object.assign({}, config as EngineConfig);
 
-    const endpointMap: { [endpoint: string]: string } = {};
+    const endpointMap: Record<string, string> = {};
     endpoints.forEach(endpoint => {
       endpointMap[endpoint] = endpoint;
     });
 
     // Inject frontend, that we will route for users that are allowing us to
-    // use the default configurations (i.e. users that have not set useConfigPrecisely
-    // to true)
+    // use the default configurations (i.e. users that have not set usingMiddleware
+    // to false)
     const frontend = Object.assign(
       {
         host: '127.0.0.1',
-        endpointMap: endpointMap,
+        endpointMap,
         port: 0,
       },
       this.frontendParams,
     ) as FrontendConfig;
     // If someone has specified endpoint or endpoints explicitly, we should probably
     // respect it. However I fear that this might cause more harm than good in most
-    // cases, especially since single-proxy apps should always useConfigPrecisely.
+    // cases, especially since single-proxy apps should always set usingMiddleware
+    // to false.
     // XXX: Should we simply translate this into a corresponding endpointMap?
     if (frontend.endpoint || frontend.endpoints) {
       delete frontend.endpointMap;
     }
     if (typeof childConfig.frontends === 'undefined') {
-      if (this.useConfigPrecisely) {
+      if (!this.usingMiddleware) {
         throw new Error(
           `Cannot run Apollo Engine with no frontend. Either specify ` +
-            `at least one frontend in your engine-config or set useConfigPrecisely ` +
-            `to false.`,
+            `at least one frontend in your engine-config or set usingMiddleware ` +
+            `to true.`,
         );
       }
       childConfig.frontends = [frontend];
-    } else if (!this.useConfigPrecisely) {
+    } else if (this.usingMiddleware) {
       childConfig.frontends.push(frontend);
     }
 
     if (typeof childConfig.origins === 'undefined') {
-      if (this.useConfigPrecisely) {
+      if (!this.usingMiddleware) {
         throw new Error(
           `Cannot run Apollo Engine with no origin. Either specify ` +
-            `at least one origin in your engine-config or set useConfigPrecisely ` +
-            `to false.`,
+            `at least one origin in your engine-config or set usingMiddleware ` +
+            `to true.`,
         );
       }
-      const defaultOrigins: any[] = [];
+      const defaultOrigins: OriginConfig[] = [];
       endpoints.forEach(endpoint => {
         const origin = Object.assign({}, this.originParams) as OriginConfig;
         origin.http = Object.assign(
-          {},
           {
             url: `http://127.0.0.1:${graphqlPort}${endpoint}`,
             headerSecret: this.middlewareParams.psk,
           },
-          origin.http || {},
+          origin.http,
         );
         origin['name'] = endpoint;
         defaultOrigins.push(origin);
       });
       childConfig.origins = defaultOrigins;
-    } else if (!this.useConfigPrecisely) {
+    } else if (this.usingMiddleware) {
       // Extend any existing HTTP origins with the chosen PSK:
       // (trust it to fill other fields correctly)
       childConfig.origins.forEach(origin => {

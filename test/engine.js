@@ -12,6 +12,7 @@ const { Engine } = require('../lib/index');
 
 const { schema, rootValue, verifyEndpointSuccess } = require('./schema');
 const { testEngine } = require('./test');
+const { notAllowedError } = require('../lib/middleware');
 
 describe('engine', () => {
   let app,
@@ -235,7 +236,7 @@ describe('engine', () => {
       let testPort = gqlServer('/test/graphql');
       let defaultPort = gqlServer('/graphql');
       engine = new Engine({
-        useConfigPrecisely: true,
+        usingMiddleware: false,
         engineConfig: {
           apiKey: 'faked',
           origins: [
@@ -273,6 +274,20 @@ describe('engine', () => {
       await engine.start();
       await verifyEndpointSuccess('http://localhost:3000/graphql', false);
       await verifyEndpointSuccess('http://localhost:3000/test/graphql', false);
+    });
+
+    it('cannot make middleware if not using middleware', async () => {
+      engine = new Engine({
+        usingMiddleware: false,
+      });
+
+      let caughtError;
+      try {
+        app.use(engine.expressMiddleware());
+      } catch (err) {
+        caughtError = err;
+      }
+      assert.equal(notAllowedError.message, caughtError.message);
     });
 
     it('sets default startup timeout', () => {
