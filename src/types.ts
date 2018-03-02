@@ -1,0 +1,10 @@
+export type EngineConfig = string | Object;
+
+export interface StartOptions {
+  // Milliseconds to wait for the proxy binary to start; set to <=0 to wait
+  // forever.  If not set, defaults to 5000ms.
+  startupTimeout?: number;
+  proxyStdoutStream?: NodeJS.WritableStream;
+  proxyStderrStream?: NodeJS.WritableStream;
+  extraArgs?: string[];
+}

@@ -18,10 +18,6 @@ script:
   - npm run lint
   # Both test & coverage.
   - npm run travis
-  # Verify that the test suite doesn't print anything extraneous
-  # by ensuring that its output in the "min" reporter has only three
-  # lines (two of which are blank).
-  - npm run test-verify-no-extraneous-output
 
 # Allow Travis tests to run in containers.
 sudo: false
