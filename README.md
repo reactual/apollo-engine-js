@@ -14,6 +14,8 @@ Read the [Release Notes](CHANGELOG.md).
 
 Please see our [Release Notes](https://www.apollographql.com/docs/engine/proxy-release-notes.html) in the Engine documenation.
 
+> For feature requests, bug reports, or general questions or feedback on Apollo Engine Proxy, please use [this form](https://engine.apollographql.com/login?overlay=SupportRequestNoAccount) instead of opening an issue on this repository.
+
 # Usage
 ```js
 import { Engine } from 'apollo-engine';
@@ -88,3 +90,9 @@ This is the minimum necessary information in the engine configuration object to 
                                     // Should only be used if debugging an issue.
 }
 ```
+
+# Issue Tracking
+
+Because this repo contains a wrapper around the more complex Apollo Engine Proxy, feature requests and support cases for the underlying proxy will be closed. Please only open an issue in this repo if you believe there is an issue with this wrapper around Apollo Engine Proxy or if you would like a feature represented in the wrapper itself.
+
+For all other requests or questions, we encourage you to [use this form](https://engine.apollographql.com/login?overlay=SupportRequestNoAccount). The #engine channel in the [Apollo Slack](apollographql.com/#slack) can also be a great resource for general questions about Apollo Engine. Following these guidelines will ensure that your requests are seen and addressed as quickly as possible and also allows us to better collect and iterate on feedback.
