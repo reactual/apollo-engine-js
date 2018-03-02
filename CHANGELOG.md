@@ -12,6 +12,10 @@ the Engine documenation.
 
 ### vNext
 
+### 0.9.1 - 2018-03-01
+- The `prettier` package was accidentally added as a dependency rather than a
+  dev-only dependency in 0.9.0. It is now in devDependencies.
+
 ### 0.9.0 - 2018-03-01
 - Upgrade Engine Proxy to
   [`2018.02-90-g65206681c`](https://www.apollographql.com/docs/engine/proxy-release-notes.html#v2018.02-90-g65206681c),

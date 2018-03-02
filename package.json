@@ -1,6 +1,6 @@
 {
   "name": "apollo-engine",
-  "version": "0.9.0",
+  "version": "0.9.1",
   "description": "Sideload Apollo Engine in front of your graphql server",
   "main": "./lib/index.js",
   "types": "./lib/index.d.ts",
@@ -25,7 +25,6 @@
     "npm": ">=4.0"
   },
   "dependencies": {
-    "prettier": "^1.11.0",
     "request": "^2.81.0"
   },
   "optionalDependencies": {
@@ -60,6 +59,7 @@
     "micro": "^9.0.1",
     "microrouter": "^3.0.0",
     "mocha": "^3.5.3",
+    "prettier": "^1.11.0",
     "request-promise-native": "^1.0.5",
     "sinon": "^4.4.2",
     "tmp": "0.0.33",
