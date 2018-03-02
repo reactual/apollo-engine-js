@@ -93,6 +93,6 @@ This is the minimum necessary information in the engine configuration object to 
 
 # Issue Tracking
 
-Because this repo contains a wrapper around the more complex Apollo Engine Proxy, feature requests and support cases for the underlying proxy will be closed. Please only open an issue in this repo if you believe there is an issue with this wrapper around Apollo Engine Proxy or if you would like a feature represented in the wrapper itself.
+Because this repo contains a wrapper around the Apollo Engine Proxy binary, feature requests and support cases for the underlying proxy will be closed. Please only open an issue in this repo if you believe there is an issue with the wrapper/middleware code or if you would like a feature represented in the wrapper itself.
 
 For all other requests or questions, we encourage you to [use this form](https://engine.apollographql.com/login?overlay=SupportRequestNoAccount). The #engine channel in the [Apollo Slack](apollographql.com/#slack) can also be a great resource for general questions about Apollo Engine. Following these guidelines will ensure that your requests are seen and addressed as quickly as possible and also allows us to better collect and iterate on feedback.
