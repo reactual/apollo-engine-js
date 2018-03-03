@@ -25,10 +25,12 @@ function basicConfig(port: number) {
       level: 'WARN',
       destination: 'STDERR',
     },
-    frontends: [{
-      // We need to know which to connect to.
-      host: '127.0.0.1',
-    }],
+    frontends: [
+      {
+        // We need to know which to connect to.
+        host: '127.0.0.1',
+      },
+    ],
     reporting: {
       disabled: true,
     },
