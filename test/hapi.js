@@ -1,10 +1,17 @@
 const hapi = require('hapi');
-const {graphqlHapi} = require('apollo-server-hapi');
+const { graphqlHapi } = require('apollo-server-hapi');
 
-const {assert} = require('chai');
+const { assert } = require('chai');
 const request = require('request-promise-native');
-const {schema, rootValue, verifyEndpointSuccess, verifyEndpointFailure, verifyEndpointError, verifyEndpointGet} = require('./schema');
-const {testEngine} = require('./test');
+const {
+  schema,
+  rootValue,
+  verifyEndpointSuccess,
+  verifyEndpointFailure,
+  verifyEndpointError,
+  verifyEndpointGet,
+} = require('./schema');
+const { testEngine } = require('./test');
 
 describe('hapi middleware', () => {
   let server;
@@ -12,7 +19,7 @@ describe('hapi middleware', () => {
     server = new hapi.Server();
     server.connection({
       host: 'localhost',
-      port: 0
+      port: 0,
     });
 
     server.route({
@@ -20,7 +27,7 @@ describe('hapi middleware', () => {
       path: '/graphql',
       handler: (req, reply) => {
         return reply('ok');
-      }
+      },
     });
     server.register({
       register: graphqlHapi,
@@ -29,8 +36,8 @@ describe('hapi middleware', () => {
         graphqlOptions: {
           schema: schema,
           rootValue: rootValue,
-          tracing: true
-        }
+          tracing: true,
+        },
       },
     });
   });
@@ -91,7 +98,7 @@ describe('hapi middleware', () => {
     it('ignores options request', async () => {
       let response = await request({
         method: 'OPTIONS',
-        url
+        url,
       });
       assert.strictEqual('ok', response);
     });

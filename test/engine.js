@@ -1,20 +1,25 @@
 const http = require('http');
 const express = require('express');
-const {graphqlExpress} = require('apollo-server-express');
+const { graphqlExpress } = require('apollo-server-express');
 const bodyParser = require('body-parser');
-const {createServer} = require('net');
-
-const {assert} = require('chai');
-const sinon = require('sinon');
+const { createServer } = require('net');
+const { Writable } = require('stream');
+const { writeFileSync, unlinkSync, renameSync, readFileSync } = require('fs');
+const tmp = require('tmp');
+const { assert } = require('chai');
 const isRunning = require('is-running');
 
-const {Engine} = require('../lib/index');
+const { Engine } = require('../lib/index');
 
-const {schema, rootValue, verifyEndpointSuccess} = require('./schema');
-const {testEngine} = require('./test');
+const { schema, rootValue, verifyEndpointSuccess } = require('./schema');
+const { testEngine } = require('./test');
 
 describe('engine', () => {
-  let app, engine = null;
+  let app,
+    engine = null,
+    didHideProxyError,
+    hideProxyErrorStream,
+    hiddenProxyError;
   beforeEach(() => {
     app = express();
   });
@@ -29,35 +34,75 @@ describe('engine', () => {
     }
   });
 
+  // Allow tests that run engineproxy to hide its output on success but show its
+  // output on failure.
+  beforeEach(() => {
+    didHideProxyError = false;
+    hiddenProxyError = '';
+    hideProxyErrorStream = () => {
+      if (didHideProxyError) {
+        throw new Error('Can only call hideProxyErrorStream once per test');
+      }
+      didHideProxyError = true;
+      return new Writable({
+        write(chunk, encoding, callback) {
+          hiddenProxyError += chunk.toString();
+        },
+      });
+    };
+  });
+  afterEach(function() {
+    // we need to access 'this', so no arrow function
+    if (didHideProxyError && this.currentTest.state !== 'passed') {
+      console.error('engineproxy error output:');
+      console.error(hiddenProxyError);
+    }
+  });
+
   function gqlServer(path) {
     path = path || '/graphql';
     app.get(`${path}/ping`, (req, res) => {
-      res.json({'pong': true});
+      res.json({ pong: true });
     });
 
-    app.use(path, bodyParser.json(), graphqlExpress({
-      schema: schema,
-      rootValue: rootValue,
-      tracing: true
-    }));
+    app.use(
+      path,
+      bodyParser.json(),
+      graphqlExpress({
+        schema: schema,
+        rootValue: rootValue,
+        tracing: true,
+      }),
+    );
 
-    return http.createServer(app).listen().address().port;
+    return http
+      .createServer(app)
+      .listen()
+      .address().port;
   }
 
-  function setupEngine(path) {
-    engine = testEngine(path);
+  function setupEngine(path, options = {}) {
+    engine = testEngine(path, options);
     app.use(engine.expressMiddleware());
 
     engine.graphqlPort = gqlServer(path);
   }
 
   describe('config', () => {
-    it('allows reading from file proxy', async () => {
+    it('throws on unknown top level keys', () => {
+      assert.throws(
+        () => new Engine({ unknownKey: true }),
+        Error,
+        /Unknown option 'unknownKey'/,
+      );
+    });
+    it('allows reading config from file', async () => {
       // Install middleware before GraphQL handler:
       engine = new Engine({
         endpoint: '/graphql',
         engineConfig: 'test/engine.json',
-        graphqlPort: 1
+        graphqlPort: 1,
+        proxyStderrStream: hideProxyErrorStream(),
       });
       app.use(engine.expressMiddleware());
 
@@ -68,60 +113,139 @@ describe('engine', () => {
       return verifyEndpointSuccess(`http://localhost:${port}/graphql`, false);
     });
 
-    it('appends configuration', (done) => {
-      // Grab a random port locally:
-      const srv = createServer();
-      srv.on('listening', async () => {
-        const extraPort = srv.address().port;
-        srv.close();
+    it('allows reloading config from file with useConfigPrecisely', async () => {
+      // Make a temp filename for the config we're going to reload, and for a
+      // log file we're going to eventually look for.
+      const tmpConfig = tmp.fileSync({ discardDescriptor: true });
+      const tmpLog = tmp.fileSync({ discardDescriptor: true });
+      unlinkSync(tmpLog.name);
 
-        // Setup engine, with an extra frontend on that port:
-        let engineConfig = {
-          frontends: [{
-            host: '127.0.0.1',
-            endpoint: '/graphql',
-            port: extraPort
-          }],
-          reporting: {
-            disabled: true,
-            noTraceVariables: true
-          }
-        };
-        engine = new Engine({
-          endpoint: '/graphql',
-          engineConfig,
-          graphqlPort: 1
-        });
-        app.use(engine.expressMiddleware());
+      const defaultPort = gqlServer('/graphql');
 
-        let port = gqlServer('/graphql');
-        // Provide origins _before_ starting:
-        engineConfig.origins = [
-          {
-            name: 'lambda',
-            lambda: {
-              functionArn: 'arn:aws:lambda:us-east-1:1234567890:function:mock_function',
-              awsAccessKeyId: 'foo',
-              awsSecretAccessKey: 'bar'
-            }
-          },
+      // Write a basic config file out to disk. It does not have request logging
+      // turned on.
+      const config = {
+        apiKey: 'faked',
+        reporting: {
+          disabled: true,
+        },
+        origins: [
           {
             http: {
-              url: `http://localhost:${port}/graphql`
-            }
-          }
-        ];
-        await engine.start();
+              url: `http://127.0.0.1:${defaultPort}/graphql`,
+            },
+          },
+        ],
+        frontends: [
+          {
+            host: '127.0.0.1',
+            port: 3000,
+            endpoint: '/graphql',
+          },
+        ],
+      };
+      writeFileSync(tmpConfig.name, JSON.stringify(config));
 
-        // Non-HTTP origin unchanged:
-        assert.strictEqual(undefined, engineConfig.origins[0].http);
-        // HTTP origin has PSK injected:
-        assert.notEqual(undefined, engineConfig.origins[1].http.headerSecret);
+      // Run Engine. Ask it to check the config file for reloads every 5ms
+      // instead of the default 5s, for a faster test.
+      engine = new Engine({
+        endpoint: '/graphql',
+        engineConfig: tmpConfig.name,
+        useConfigPrecisely: true,
+        graphqlPort: defaultPort,
+        proxyStderrStream: hideProxyErrorStream(),
+      });
+      engine.extraArgs = ['-config-reload-file=5ms'];
+      app.use(engine.expressMiddleware());
 
-        await verifyEndpointSuccess(`http://localhost:${port}/graphql`, false);
-        await verifyEndpointSuccess(`http://localhost:${extraPort}/graphql`, false);
-        done();
-      }).listen(0);
+      // Make sure it runs properly.
+      await engine.start();
+      await verifyEndpointSuccess(`http://localhost:3000/graphql`, false);
+
+      // Add request logging to the config file. Write it out (atomically!) and
+      // wait twice the -config-reload-file amount of time.
+      config.logging = {
+        request: {
+          destination: tmpLog.name,
+        },
+      };
+      writeFileSync(tmpConfig.name + '.atomic', JSON.stringify(config));
+      renameSync(tmpConfig.name + '.atomic', tmpConfig.name);
+      await new Promise(resolve => setTimeout(resolve, 10));
+
+      // Make a request, which should be logged.
+      await verifyEndpointSuccess(`http://localhost:3000/graphql`, false);
+      // Wait a moment and verify the request log exists.
+      await new Promise(resolve => setTimeout(resolve, 10));
+      readFileSync(tmpLog.name);
+    });
+
+    it('appends configuration', done => {
+      // Grab a random port locally:
+      const srv = createServer();
+      srv
+        .on('listening', async () => {
+          const extraPort = srv.address().port;
+          srv.close();
+
+          // Setup engine, with an extra frontend on that port:
+          let engineConfig = {
+            frontends: [
+              {
+                host: '127.0.0.1',
+                endpoint: '/graphql',
+                port: extraPort,
+              },
+            ],
+            reporting: {
+              disabled: true,
+              noTraceVariables: true,
+            },
+          };
+          engine = new Engine({
+            endpoint: '/graphql',
+            engineConfig,
+            graphqlPort: 1,
+            proxyStderrStream: hideProxyErrorStream(),
+          });
+          app.use(engine.expressMiddleware());
+
+          let port = gqlServer('/graphql');
+          // Provide origins _before_ starting:
+          engineConfig.origins = [
+            {
+              name: 'lambda',
+              lambda: {
+                functionArn:
+                  'arn:aws:lambda:us-east-1:1234567890:function:mock_function',
+                awsAccessKeyId: 'foo',
+                awsSecretAccessKey: 'bar',
+              },
+            },
+            {
+              http: {
+                url: `http://localhost:${port}/graphql`,
+              },
+            },
+          ];
+          await engine.start();
+
+          // Non-HTTP origin unchanged:
+          assert.strictEqual(undefined, engineConfig.origins[0].http);
+          // HTTP origin has PSK injected:
+          assert.notEqual(undefined, engineConfig.origins[1].http.headerSecret);
+
+          await verifyEndpointSuccess(
+            `http://localhost:${port}/graphql`,
+            false,
+          );
+          await verifyEndpointSuccess(
+            `http://localhost:${extraPort}/graphql`,
+            false,
+          );
+          done();
+        })
+        .listen(0);
     });
 
     it('can be configured in single proxy mode', async () => {
@@ -129,61 +253,62 @@ describe('engine', () => {
       let port = gqlServer('/graphql');
 
       engine = new Engine({
-        engineConfig: 'test/engine.json',
+        engineConfig: { apiKey: 'faked', reporting: { disabled: true } },
         graphqlPort: port,
         frontend: {
           host: '127.0.0.1',
           port: 3000,
-        }
+        },
+        proxyStderrStream: hideProxyErrorStream(),
       });
 
       await engine.start();
       await verifyEndpointSuccess('http://localhost:3000/graphql', false);
     });
 
-
     it('can be configured in single proxy mode to use multiple endpoints', async () => {
       let testPort = gqlServer('/test/graphql');
       let defaultPort = gqlServer('/graphql');
       engine = new Engine({
-        allowFullConfiguration: true,
+        useConfigPrecisely: true,
         engineConfig: {
           apiKey: 'faked',
           origins: [
             {
               name: 'defaultOrigin',
               http: {
-                url: `http://127.0.0.1:${defaultPort}/graphql`
-              }
+                url: `http://127.0.0.1:${defaultPort}/graphql`,
+              },
             },
             {
               name: 'testOrigin',
               http: {
-                url: `http://127.0.0.1:${testPort}/graphql`
-              }
-            }
+                url: `http://127.0.0.1:${testPort}/graphql`,
+              },
+            },
           ],
           frontends: [
             {
               host: '127.0.0.1',
               port: 3000,
               endpointMap: {
-                '/graphql' : 'defaultOrigin',
-                '/test/graphql' : 'testOrigin',
-              }
-            }
+                '/graphql': 'defaultOrigin',
+                '/test/graphql': 'testOrigin',
+              },
+            },
           ],
           reporting: {
             disabled: true,
-            noTraceVariables: true
-          }
-        }
+            noTraceVariables: true,
+          },
+        },
+        proxyStderrStream: hideProxyErrorStream(),
       });
 
-      await engine.start()
+      await engine.start();
       await verifyEndpointSuccess('http://localhost:3000/graphql', false);
       await verifyEndpointSuccess('http://localhost:3000/test/graphql', false);
-    })
+    });
 
     it('sets default startup timeout', () => {
       engine = new Engine({
@@ -206,13 +331,14 @@ describe('engine', () => {
         origin: {
           http: {
             disableCertificateCheck: true,
-          }
+          },
         },
         engineConfig: {
           reporting: {
-            disabled: true
-          }
-        }
+            disabled: true,
+          },
+        },
+        proxyStderrStream: hideProxyErrorStream(),
       });
 
       await engine.start();
@@ -221,24 +347,27 @@ describe('engine', () => {
 
     it('accepts configuration of overridden headers', async () => {
       const overrideRequestHeaders = {
-        'Host': 'example.com',
+        Host: 'example.com',
         'X-Does-Not-Exist': 'huehue',
       };
       engine = new Engine({
         graphqlPort: 1,
         origin: {
           http: {
-            overrideRequestHeaders: overrideRequestHeaders
-          }
+            overrideRequestHeaders: overrideRequestHeaders,
+          },
         },
         engineConfig: {
           reporting: {
-            disabled: true
-          }
-        }
+            disabled: true,
+          },
+        },
       });
 
-      assert.equal(engine.originParams.http.overrideRequestHeaders, overrideRequestHeaders);
+      assert.equal(
+        engine.originParams.http.overrideRequestHeaders,
+        overrideRequestHeaders,
+      );
     });
 
     it('does not override origin url', async () => {
@@ -247,37 +376,62 @@ describe('engine', () => {
         graphqlPort: 1,
         origin: {
           http: {
-            url: userSpecifiedUrl
-          }
+            url: userSpecifiedUrl,
+          },
         },
         engineConfig: {
           reporting: {
-            disabled: true
-          }
-        }
+            disabled: true,
+          },
+        },
       });
 
       assert.strictEqual(userSpecifiedUrl, engine.originParams.http.url);
     });
 
-    it('can be configured to use a custom default logger', async () => {
-      const errorLogger = sinon.stub();
-      const defaultLogger = sinon.spy();
+    it('can be configured to use custom stdout', async () => {
+      let written = false;
+      const proxyStdoutStream = new Writable({
+        write(chunk, encoding, callback) {
+          written = true;
+        },
+      });
       engine = new Engine({
         graphqlPort: 1,
-        logger: {
-          error: errorLogger,
-          log: defaultLogger
-        },
+        proxyStdoutStream,
         engineConfig: {
           reporting: {
-            disabled: true
-          }
-        }
+            disabled: true,
+          },
+          logging: {
+            destination: 'STDOUT',
+          },
+        },
       });
 
       await engine.start();
-      assert(defaultLogger.calledWith({ proxy: sinon.match.object }));
+      assert(written);
+    });
+
+    it('can be configured to use custom stderr', async () => {
+      let written = false;
+      const proxyStderrStream = new Writable({
+        write(chunk, encoding, callback) {
+          written = true;
+        },
+      });
+      engine = new Engine({
+        graphqlPort: 1,
+        proxyStderrStream,
+        engineConfig: {
+          reporting: {
+            disabled: true,
+          },
+        },
+      });
+
+      await engine.start();
+      assert(written);
     });
   });
 
@@ -294,11 +448,15 @@ describe('engine', () => {
       assert.isTrue(isRunning(childPid));
 
       // Directly kill process, wait for notice another process has started:
+      const restartingPromise = new Promise(resolve => {
+        engine.once('restarting', resolve);
+      });
       const restartPromise = new Promise(resolve => {
         engine.once('start', resolve);
       });
       engine.child.kill('SIGKILL');
       await restartPromise;
+      await restartingPromise;
 
       const restartedPid = engine.child.pid;
       assert.notEqual(childPid, restartedPid);
@@ -309,11 +467,11 @@ describe('engine', () => {
     });
 
     it('is non-invasive on invalid config', async () => {
-      setupEngine();
+      setupEngine('/graphql', { proxyStderrStream: hideProxyErrorStream() });
       engine.startupTimeout = 100;
       engine.config.logging.level = 'invalid';
 
-      engine.on('error', (err) => {
+      engine.on('error', err => {
         assert.match(err, /Engine crashed due to invalid configuration/);
       });
       try {
@@ -324,24 +482,5 @@ describe('engine', () => {
       }
       assert.strictEqual('', engine.middlewareParams.uri);
     });
-
-    it('can be configured to use a custom error logger', async () => {
-      const errorLogger = sinon.spy();
-      const defaultLogger = sinon.stub();
-      setupEngine();
-      engine.startupTimeout = 100;
-      engine.logger = {
-        error: errorLogger,
-        log: defaultLogger
-      };
-      engine.config.logging.format = 'invalid';
-
-      engine.on('error', () => sinon.stub());
-      try {
-        await engine.start();
-      } catch (err) {
-      }
-      assert(errorLogger.called);
-    });
-  })
+  });
 });
