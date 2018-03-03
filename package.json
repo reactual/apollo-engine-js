@@ -11,6 +11,7 @@
     "prepare": "npm run clean && npm run compile",
     "pretest": "tsc",
     "test": "mocha",
+    "test:watch": "mocha --watch",
     "pretravis": "npm run compile",
     "travis": "istanbul cover _mocha -- --timeout 5000 --full-trace ./test/*.js",
     "lint": "tslint -p tsconfig.json src/*.ts"

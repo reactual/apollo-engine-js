@@ -26,7 +26,6 @@ exports.verifyEndpointSuccess = (url, hasTracing) => {
       json: true,
       body: {'query': '{ hello }'}
     }, (err, response, body) => {
-      console.log('response: ', response.statusCode, response.data);
       assert.strictEqual('Hello World', body['data']['hello']);
       if (hasTracing) {
         assert.notEqual(undefined, body['extensions'] && body['extensions']['tracing']);
