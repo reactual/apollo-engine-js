@@ -31,7 +31,10 @@ export class ApolloEngine extends EventEmitter {
     this.launcher = new ApolloEngineLauncher(config);
   }
 
-  public listen(options: ListenOptions, listenCallback: (la: ListeningAddress)=>void) {
+  public listen(
+    options: ListenOptions,
+    listenCallback: (la: ListeningAddress) => void,
+  ) {
     if (options.port === undefined) {
       throw new Error(
         'Must provide the port that your app will be accessible on as "port"',
@@ -80,7 +83,10 @@ export class ApolloEngine extends EventEmitter {
         frontendHost: options.host,
         frontendPort: options.port,
         graphqlPaths: options.graphqlPaths || ['/graphql'],
-        originUrl: `http://${joinHostPort(innerAddress.address, innerAddress.port)}`,
+        originUrl: `http://${joinHostPort(
+          innerAddress.address,
+          innerAddress.port,
+        )}`,
         // Support multiple graphqlPaths.
         useFrontendPathForDefaultOrigin: true,
       };
