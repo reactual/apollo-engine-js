@@ -76,22 +76,26 @@ export class ApolloEngine extends EventEmitter {
       // The Node server is now listening, so we can figure out what its address
       // is!
       const innerAddress = httpServer.address();
-      const startOptions = Object.assign({}, options.startOptions);
-      const host = options.host === undefined ? '' : options.host;
-      const graphqlPaths = JSON.stringify(options.graphqlPaths || ['/graphql']);
       let innerHost = innerAddress.address;
       if (innerHost.includes(':')) {
         // Literal IPv6 addresses contain colons and need to be wrapped in
         // square brackets (like Go's net.JoinHostPort).
         innerHost = `[${innerHost}]`;
       }
-      const originUrl = `http://${innerHost}:${innerAddress.port}`;
+
+      const defaults = {
+        frontendHost: options.host,
+        frontendPort: options.port,
+        graphqlPaths: options.graphqlPaths || ['/graphql'],
+        originUrl: `http://${innerHost}:${innerAddress.port}`,
+        // Support multiple graphqlPaths.
+        useFrontendPathForDefaultOrigin: true,
+      };
+
+      const startOptions = Object.assign({}, options.startOptions);
       startOptions.extraArgs = [
         ...(startOptions.extraArgs || []),
-        `-default-frontend-host=${host}`,
-        `-default-frontend-port=${options.port}`,
-        `-default-frontend-graphql-paths=${graphqlPaths}`,
-        `-default-origin-url=${originUrl}`,
+        `-defaults=${JSON.stringify(defaults)}`,
       ];
 
       this.launcher
