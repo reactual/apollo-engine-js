@@ -3,8 +3,8 @@ import { Server as ConnectApp } from 'connect';
 import { Server as HttpServer } from 'http';
 import * as KoaApp from 'koa';
 
-import { EngineConfig, StartOptions } from './types';
-import { ApolloEngineLauncher } from './launcher';
+import { EngineConfig, StartOptions, ListeningAddress } from './types';
+import { ApolloEngineLauncher, joinHostPort } from './launcher';
 import { EventEmitter } from 'events';
 
 export interface ListenOptions {
@@ -31,7 +31,7 @@ export class ApolloEngine extends EventEmitter {
     this.launcher = new ApolloEngineLauncher(config);
   }
 
-  public listen(options: ListenOptions, listenCallback: Function) {
+  public listen(options: ListenOptions, listenCallback: (la: ListeningAddress)=>void) {
     if (options.port === undefined) {
       throw new Error(
         'Must provide the port that your app will be accessible on as "port"',
@@ -76,18 +76,11 @@ export class ApolloEngine extends EventEmitter {
       // The Node server is now listening, so we can figure out what its address
       // is!
       const innerAddress = httpServer.address();
-      let innerHost = innerAddress.address;
-      if (innerHost.includes(':')) {
-        // Literal IPv6 addresses contain colons and need to be wrapped in
-        // square brackets (like Go's net.JoinHostPort).
-        innerHost = `[${innerHost}]`;
-      }
-
       const defaults = {
         frontendHost: options.host,
         frontendPort: options.port,
         graphqlPaths: options.graphqlPaths || ['/graphql'],
-        originUrl: `http://${innerHost}:${innerAddress.port}`,
+        originUrl: `http://${joinHostPort(innerAddress.address, innerAddress.port)}`,
         // Support multiple graphqlPaths.
         useFrontendPathForDefaultOrigin: true,
       };

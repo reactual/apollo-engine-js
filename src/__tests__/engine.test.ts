@@ -276,8 +276,8 @@ Object.keys(frameworks).forEach(frameworkName => {
                 port: 0,
                 [appParameter]: app,
               },
-              (engineListeningAddress: string) => {
-                resolve(`http://${engineListeningAddress}/graphql`);
+              engineListeningAddress => {
+                resolve(`${engineListeningAddress.url}/graphql`);
               },
             );
           });

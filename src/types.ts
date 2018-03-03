@@ -8,3 +8,9 @@ export interface StartOptions {
   proxyStderrStream?: NodeJS.WritableStream;
   extraArgs?: string[];
 }
+
+export interface ListeningAddress {
+  ip: string;
+  port: number;
+  url: string;
+}
