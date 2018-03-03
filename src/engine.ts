@@ -94,6 +94,8 @@ export class ApolloEngine extends EventEmitter {
       this.launcher
         .start(startOptions)
         .then(engineListeningAddress => {
+          // Note: this passes the listening address to the callback purely for
+          // the purposes of our test suite. Do not rely on this value!
           listenCallback(engineListeningAddress);
         })
         .catch(error => this.emit('error', error));

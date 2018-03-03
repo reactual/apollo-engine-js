@@ -102,7 +102,17 @@ export class ApolloEngineLauncher extends EventEmitter {
           // Notify that proxy has started. The object is of the form `{ip:
           // "127.0.0.1", port: 1234}`.
           const la = JSON.parse(listeningAddress);
-          la.url = `http://${joinHostPort(la.ip, la.port)}`;
+          // Convert IPs which mean "any address" (IPv4 or IPv6) into localhost
+          // corresponding loopback ip. Note that the url field we're setting is
+          // primarily for consumption by our test suite. If this heuristic is
+          // wrong for your use case, explicitly specify a frontend host (in the
+          // `frontends.host` field in your engine config, or in the `host`
+          // option to ApolloEngine.listen).
+          let hostForUrl = la.ip;
+          if (la.ip === '' || la.ip === '::') {
+            hostForUrl = 'localhost';
+          }
+          la.url = `http://${joinHostPort(hostForUrl, la.port)}`;
           this.emit('start', la);
         }
       });
