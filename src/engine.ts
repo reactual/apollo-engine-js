@@ -20,7 +20,18 @@ export interface ListenOptions {
   koaApp?: KoaApp;
 }
 
+export interface HapiListenOptions {
+  port: number;
+  graphqlPaths?: string[]; // default: ['/graphql']
+  host?: string; // default: ''. This is where engineproxy listens.
+  innerHost?: string; // default: '127.0.0.1'. This is where Node listens.
+  startOptions?: StartOptions;
+}
+
 export class ApolloEngine extends EventEmitter {
+  // Primarily useful if you're having engine listen on 0 for tests.
+  public engineListeningAddress: ListeningAddress;
+
   private config: EngineConfig;
   private launcher: ApolloEngineLauncher;
   private httpServer: HttpServer;
@@ -31,10 +42,7 @@ export class ApolloEngine extends EventEmitter {
     this.launcher = new ApolloEngineLauncher(config);
   }
 
-  public listen(
-    options: ListenOptions,
-    listenCallback: (la: ListeningAddress) => void,
-  ) {
+  public listen(options: ListenOptions, listenCallback: () => void) {
     if (options.port === undefined) {
       throw new Error(
         'Must provide the port that your app will be accessible on as "port"',
@@ -100,9 +108,8 @@ export class ApolloEngine extends EventEmitter {
       this.launcher
         .start(startOptions)
         .then(engineListeningAddress => {
-          // Note: this passes the listening address to the callback purely for
-          // the purposes of our test suite. Do not rely on this value!
-          listenCallback(engineListeningAddress);
+          this.engineListeningAddress = engineListeningAddress;
+          listenCallback();
         })
         .catch(error => this.emit('error', error));
     });
@@ -114,5 +121,26 @@ export class ApolloEngine extends EventEmitter {
     this.httpServer.close();
   }
 
-  // FIXME hapiListener
+  public async hapiListener(options: HapiListenOptions) {
+    const httpServer = new HttpServer();
+    const p = new Promise((resolve, reject) => {
+      this.once('error', reject);
+      this.listen({ ...options, httpServer }, resolve);
+    });
+    await p;
+
+    // The autoListen:false feature of hapi is semi-broken: some key
+    // functionality depends on the 'listening' event being evoked even if you
+    // told it it's already listening. Here's a fun hack to make sure we call it
+    // anyway!
+    function callListeningImmediately(event: String, listening: Function) {
+      if (event !== 'listening') {
+        return;
+      }
+      httpServer.removeListener('newListener', callListeningImmediately);
+      process.nextTick(() => httpServer.emit('listening'));
+    }
+    httpServer.on('newListener', callListeningImmediately);
+    return httpServer;
+  }
 }
