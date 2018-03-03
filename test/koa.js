@@ -18,23 +18,6 @@ const { testEngine } = require('./test');
 describe('koa middleware', () => {
   let app;
 
-  // TODO: This should set the headers the 'Koa' way (???)
-  const echoRequestHeadersMiddleware = async (ctx, next) => {
-    const {req, res} = ctx;
-    console.log('17 i am here', {body: ctx.body, host: ctx.headers.host });
-    // console.log("echoReq " + ctx.header.host);
-    const injectedHeader = ctx.set('x-echo-header', "");
-    ctx.set('host', ctx.host)
-    if (injectedHeader) {
-      // console.log("inj header " + injectedHeader)
-      const reqHeaders = req.header;
-      res.header('content-type', 'application/json');
-      res.header('x-echoed-request-headers', JSON.stringify(reqHeaders));
-      res.send(200);
-    }
-    await next();
-  };
-
   function gqlServer() {
     let graphqlHandler = graphqlKoa({
       schema,
@@ -44,7 +27,6 @@ describe('koa middleware', () => {
     const router = new koaRouter();
     router.post('/graphql', koaBody(), graphqlHandler);
     router.get('/graphql', graphqlHandler);
-    app.use(echoRequestHeadersMiddleware);
     app.use(router.routes());
     app.use(router.allowedMethods());
     return app.listen(0);
@@ -81,17 +63,7 @@ describe('koa middleware', () => {
     let url, engine;
     beforeEach(async () => {
       engine = testEngine();
-      app.use(async (ctx, next) => {
-        console.log("1 " + ctx.host);
-        await next();
-        console.log("2 " + ctx.host);
-      });
       app.use(engine.koaMiddleware());
-      app.use(async (ctx, next) => {
-        console.log("3 " + ctx.host );
-        await next();
-        console.log("4 " + ctx.host );
-      });
       let server = gqlServer();
       engine.graphqlPort = server.address().port;
       await engine.start();
@@ -105,15 +77,12 @@ describe('koa middleware', () => {
     it('processes successful query', () => {
       return verifyEndpointSuccess(url, false);
     });
-
     it('processes successful GET query', () => {
       return verifyEndpointGet(url, false);
     });
-
     it('processes invalid query', () => {
       return verifyEndpointFailure(url);
     });
-
     it('processes query that errors', () => {
       return verifyEndpointError(url);
     });
@@ -123,3 +92,19 @@ describe('koa middleware', () => {
       // This simulates engine returning an invalid response, without triggering
       // any actual bugs.
       engine.middlewareParams.uri = 'http://127.0.0.1:22';
+      return new Promise(resolve => {
+        request.post(
+          {
+            url,
+            json: true,
+            body: { query: '{ hello }' },
+          },
+          (err, response, body) => {
+            assert.strictEqual(500, response.statusCode);
+            resolve();
+          },
+        );
+      });
+    });
+  });
+});
