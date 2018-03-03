@@ -25,6 +25,10 @@ function basicConfig(port: number) {
       level: 'WARN',
       destination: 'STDERR',
     },
+    frontends: [{
+      // We need to know which to connect to.
+      host: '127.0.0.1',
+    }],
     reporting: {
       disabled: true,
     },
@@ -107,7 +111,7 @@ describe('ApolloEngineLauncher', () => {
         extraArgs: ['-config-reload-file=5ms'],
       });
 
-      await verifyEndpointSuccess(`http://${listeningAddress}/graphql`, false);
+      await verifyEndpointSuccess(`${listeningAddress.url}/graphql`, false);
 
       // Add request logging to the config file. Write it out (atomically!) and
       // wait twice the -config-reload-file amount of time.
@@ -119,7 +123,7 @@ describe('ApolloEngineLauncher', () => {
       await new Promise(resolve => setTimeout(resolve, 10));
 
       // Make a request, which should be logged.
-      await verifyEndpointSuccess(`http://${listeningAddress}/graphql`, false);
+      await verifyEndpointSuccess(`${listeningAddress.url}/graphql`, false);
       // Wait a moment and verify the request log exists.
       await new Promise(resolve => setTimeout(resolve, 10));
       readFileSync(tmpLog.name);
@@ -130,7 +134,7 @@ describe('ApolloEngineLauncher', () => {
       // Make sure it runs properly.
       const listeningAddress = await launcher.start();
 
-      await verifyEndpointSuccess(`http://${listeningAddress}/graphql`, false);
+      await verifyEndpointSuccess(`${listeningAddress.url}/graphql`, false);
     });
   });
 
@@ -168,7 +172,7 @@ describe('ApolloEngineLauncher', () => {
     test('restarts binary', async () => {
       launcher = new ApolloEngineLauncher(config);
       const listenAddress = await launcher.start();
-      await verifyEndpointSuccess(`http://${listenAddress}/graphql`, false);
+      await verifyEndpointSuccess(`${listenAddress.url}/graphql`, false);
 
       const child = launcher['child'];
       expect(child).toBeDefined();

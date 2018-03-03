@@ -1,7 +1,7 @@
 import { EventEmitter } from 'events';
 import { ChildProcess, spawn } from 'child_process';
 
-import { EngineConfig, StartOptions } from './types';
+import { EngineConfig, StartOptions, ListeningAddress } from './types';
 
 export class ApolloEngineLauncher extends EventEmitter {
   private config: EngineConfig;
@@ -33,7 +33,7 @@ export class ApolloEngineLauncher extends EventEmitter {
     }
   }
 
-  public start(options: StartOptions = {}): Promise<string> {
+  public start(options: StartOptions = {}): Promise<ListeningAddress> {
     if (this.child) {
       throw new Error(
         'Only call start() on an ApolloEngineLauncher object once',
@@ -99,8 +99,11 @@ export class ApolloEngineLauncher extends EventEmitter {
         // If we read something, then it started. (If not, then this is probably
         // just end of process cleanup.)
         if (listeningAddress !== '') {
-          // Notify that proxy has started.
-          this.emit('start', listeningAddress);
+          // Notify that proxy has started. The object is of the form `{ip:
+          // "127.0.0.1", port: 1234}`.
+          const la = JSON.parse(listeningAddress);
+          la.url = `http://${joinHostPort(la.ip, la.port)}`;
+          this.emit('start', la);
         }
       });
       // Re-emit any errors from talking to engineproxy.
@@ -186,4 +189,13 @@ export class ApolloEngineLauncher extends EventEmitter {
       console.error(error);
     }
   }
+}
+
+// Literal IPv6 addresses contain colons and need to be wrapped in square
+// brackets (like Go's net.JoinHostPort).
+export function joinHostPort(host: string, port: number) {
+  if (host.includes(':')) {
+    host = `[${host}]`;
+  }
+  return `${host}:${port}`;
 }
