@@ -42,7 +42,7 @@ export class ApolloEngine extends EventEmitter {
     this.launcher = new ApolloEngineLauncher(config);
   }
 
-  public listen(options: ListenOptions, listenCallback: () => void) {
+  public listen(options: ListenOptions, listenCallback?: () => void) {
     if (options.port === undefined) {
       throw new Error(
         'Must provide the port that your app will be accessible on as "port"',
