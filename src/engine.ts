@@ -86,9 +86,11 @@ export class ApolloEngine extends EventEmitter {
     this.httpServer.listen({ port: 0, host: options.innerHost }, () => {
       // The Node server is now listening, so we can figure out what its address
       // is!
-      this.startEngine(httpServer.address(), options).then(
-        () => listenCallback && listenCallback(),
-      );
+      this.startEngine(httpServer.address(), options)
+        .then(() => listenCallback && listenCallback())
+        .catch(error => {
+          this.emit('error', error);
+        });
     });
   }
 
@@ -190,11 +192,6 @@ export class ApolloEngine extends EventEmitter {
       `-defaults=${JSON.stringify(defaults)}`,
     ];
 
-    try {
-      this.engineListeningAddress = await this.launcher.start(startOptions);
-    } catch (error) {
-      console.error('XXX about to emit the error', error);
-      this.emit('error', error);
-    }
+    this.engineListeningAddress = await this.launcher.start(startOptions);
   }
 }
