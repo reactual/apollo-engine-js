@@ -113,7 +113,12 @@ export class ApolloEngine extends EventEmitter {
           throw Error('Engine done not support listening without a port');
         }
         this.listen(
-          { ...options, port: listenOptions.port, host: listenOptions.host },
+          {
+            ...options,
+            port: listenOptions.port,
+            host: listenOptions.host,
+            httpServer,
+          },
           cb,
         );
       };
