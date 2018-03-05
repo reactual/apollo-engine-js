@@ -1,6 +1,7 @@
 import { Application as ExpressApp } from 'express';
 import { Server as ConnectApp } from 'connect';
 import { Server as HttpServer } from 'http';
+import { ListenOptions as NetListenOptions } from 'net';
 import * as KoaApp from 'koa';
 
 import { EngineConfig, StartOptions, ListeningAddress } from './types';
@@ -98,43 +99,50 @@ export class ApolloEngine extends EventEmitter {
   }
 
   public meteorListen(webApp: any, options: MeteorListenOptions = {}) {
+    const makeListenPolyfill = (httpServer: HttpServer) => (
+      listenOptions: NetListenOptions,
+      cb: () => void,
+    ) => {
+      if (listenOptions.path !== undefined) {
+        throw Error('Engine does not support listening on a path');
+      }
+      if (listenOptions.port === undefined) {
+        throw Error('Engine done not support listening without a port');
+      }
+      this.listen(
+        {
+          ...options,
+          port: listenOptions.port,
+          host: listenOptions.host,
+          httpServer,
+        },
+        cb,
+      );
+    };
+
     // Try to use an API to be added in Meteor 1.6.2 that lets us override the
     // built-in listen call.
     if (webApp.startListening) {
       webApp.startListening = (
         httpServer: HttpServer,
-        listenOptions: { port?: number; host?: string; path?: string },
+        listenOptions: NetListenOptions,
         cb: () => void,
       ) => {
-        if (listenOptions.path !== undefined) {
-          throw Error('Engine does not support listening on a path');
-        }
-        if (listenOptions.port === undefined) {
-          throw Error('Engine done not support listening without a port');
-        }
-        this.listen(
-          {
-            ...options,
-            port: listenOptions.port,
-            host: listenOptions.host,
-            httpServer,
-          },
-          cb,
-        );
+        makeListenPolyfill(httpServer)(listenOptions, cb);
       };
       return;
     }
 
-    // Hacky pre-1.6.2 approach. The downside to this way is that the dev-mode
-    // app runner (and any in-app onListening calls) gets informed that the app
-    // is listening when the inner server is listening but before Engine is
-    // listening, which means that (eg) requests buffered in the dev-mode proxy
-    // might fail.
-    const port = +(process.env.PORT || 0);
-    process.env.PORT = '0';
-    webApp.onListening(() => {
-      this.startEngine(webApp.httpServer.address(), { ...options, port });
-    });
+    // Hacky pre-1.6.2 approach.
+    const originalListen = webApp.httpServer.listen;
+    const listenPolyfill = makeListenPolyfill(webApp.httpServer);
+    webApp.httpServer.listen = (
+      listenOptions: NetListenOptions,
+      cb: () => void,
+    ) => {
+      webApp.httpServer.listen = originalListen;
+      listenPolyfill(listenOptions, cb);
+    };
   }
 
   public async hapiListener(options: HapiListenOptions) {
