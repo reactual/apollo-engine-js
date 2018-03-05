@@ -89,7 +89,7 @@ export class ApolloEngine extends EventEmitter {
       this.startEngine(httpServer.address(), options)
         .then(() => listenCallback && listenCallback())
         .catch(error => {
-          this.emit('error', error);
+          process.nextTick(() => this.emit('error', error));
         });
     });
   }
