@@ -9,13 +9,13 @@ import { EventEmitter } from 'events';
 
 export interface MeteorListenOptions {
   graphqlPaths?: string[]; // default: ['/graphql']
-  host?: string; // default: ''. This is where engineproxy listens.
   innerHost?: string; // default: '127.0.0.1'. This is where Node listens.
   startOptions?: StartOptions;
 }
 
 export interface CoreListenOptions extends MeteorListenOptions {
   port: number;
+  host?: string; // default: ''. This is where engineproxy listens.
 }
 
 export interface ListenOptions extends CoreListenOptions {
@@ -25,9 +25,7 @@ export interface ListenOptions extends CoreListenOptions {
   koaApp?: KoaApp;
 }
 
-export interface HapiListenOptions extends CoreListenOptions {
-}
-
+export interface HapiListenOptions extends CoreListenOptions {}
 
 export class ApolloEngine extends EventEmitter {
   // Primarily useful if you're having engine listen on 0 for tests.
@@ -87,7 +85,9 @@ export class ApolloEngine extends EventEmitter {
     this.httpServer.listen({ port: 0, host: options.innerHost }, () => {
       // The Node server is now listening, so we can figure out what its address
       // is!
-      this.startEngine(httpServer.address(), options).then(() => listenCallback());
+      this.startEngine(httpServer.address(), options).then(() =>
+        listenCallback(),
+      );
     });
   }
 
@@ -98,10 +98,37 @@ export class ApolloEngine extends EventEmitter {
   }
 
   public meteorListen(webApp: any, options: MeteorListenOptions = {}) {
+    // Try to use an API to be added in Meteor 1.6.2 that lets us override the
+    // built-in listen call.
+    if (webApp.startListening) {
+      webApp.startListening = (
+        httpServer: HttpServer,
+        listenOptions: { port?: number; host?: string; path?: string },
+        cb: () => void,
+      ) => {
+        if (listenOptions.path !== undefined) {
+          throw Error('Engine does not support listening on a path');
+        }
+        if (listenOptions.port === undefined) {
+          throw Error('Engine done not support listening without a port');
+        }
+        this.listen(
+          { ...options, port: listenOptions.port, host: listenOptions.host },
+          cb,
+        );
+      };
+      return;
+    }
+
+    // Hacky pre-1.6.2 approach. The downside to this way is that the dev-mode
+    // app runner (and any in-app onListening calls) gets informed that the app
+    // is listening when the inner server is listening but before Engine is
+    // listening, which means that (eg) requests buffered in the dev-mode proxy
+    // might fail.
     const port = +(process.env.PORT || 0);
     process.env.PORT = '0';
     webApp.onListening(() => {
-      this.startEngine(webApp.httpServer.address(), {...options, port});
+      this.startEngine(webApp.httpServer.address(), { ...options, port });
     });
   }
 
@@ -128,13 +155,18 @@ export class ApolloEngine extends EventEmitter {
     return httpServer;
   }
 
-  private async startEngine(innerAddress: {port: number, address: string},
-                            options: CoreListenOptions) {
+  private async startEngine(
+    innerAddress: { port: number; address: string },
+    options: CoreListenOptions,
+  ) {
     const defaults = {
       frontendHost: options.host,
       frontendPort: options.port,
       graphqlPaths: options.graphqlPaths || ['/graphql'],
-      originUrl: `http://${joinHostPort(innerAddress.address, innerAddress.port)}`,
+      originUrl: `http://${joinHostPort(
+        innerAddress.address,
+        innerAddress.port,
+      )}`,
       // Support multiple graphqlPaths.
       useFrontendPathForDefaultOrigin: true,
     };
