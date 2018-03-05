@@ -7,26 +7,27 @@ import { EngineConfig, StartOptions, ListeningAddress } from './types';
 import { ApolloEngineLauncher, joinHostPort } from './launcher';
 import { EventEmitter } from 'events';
 
-export interface ListenOptions {
-  port: number;
+export interface MeteorListenOptions {
   graphqlPaths?: string[]; // default: ['/graphql']
   host?: string; // default: ''. This is where engineproxy listens.
   innerHost?: string; // default: '127.0.0.1'. This is where Node listens.
   startOptions?: StartOptions;
+}
 
+export interface CoreListenOptions extends MeteorListenOptions {
+  port: number;
+}
+
+export interface ListenOptions extends CoreListenOptions {
   httpServer?: HttpServer;
   expressApp?: ExpressApp;
   connectApp?: ConnectApp;
   koaApp?: KoaApp;
 }
 
-export interface HapiListenOptions {
-  port: number;
-  graphqlPaths?: string[]; // default: ['/graphql']
-  host?: string; // default: ''. This is where engineproxy listens.
-  innerHost?: string; // default: '127.0.0.1'. This is where Node listens.
-  startOptions?: StartOptions;
+export interface HapiListenOptions extends CoreListenOptions {
 }
+
 
 export class ApolloEngine extends EventEmitter {
   // Primarily useful if you're having engine listen on 0 for tests.
@@ -86,32 +87,7 @@ export class ApolloEngine extends EventEmitter {
     this.httpServer.listen({ port: 0, host: options.innerHost }, () => {
       // The Node server is now listening, so we can figure out what its address
       // is!
-      const innerAddress = httpServer.address();
-      const defaults = {
-        frontendHost: options.host,
-        frontendPort: options.port,
-        graphqlPaths: options.graphqlPaths || ['/graphql'],
-        originUrl: `http://${joinHostPort(
-          innerAddress.address,
-          innerAddress.port,
-        )}`,
-        // Support multiple graphqlPaths.
-        useFrontendPathForDefaultOrigin: true,
-      };
-
-      const startOptions = Object.assign({}, options.startOptions);
-      startOptions.extraArgs = [
-        ...(startOptions.extraArgs || []),
-        `-defaults=${JSON.stringify(defaults)}`,
-      ];
-
-      this.launcher
-        .start(startOptions)
-        .then(engineListeningAddress => {
-          this.engineListeningAddress = engineListeningAddress;
-          listenCallback();
-        })
-        .catch(error => this.emit('error', error));
+      this.startEngine(httpServer.address(), options).then(() => listenCallback());
     });
   }
 
@@ -119,6 +95,14 @@ export class ApolloEngine extends EventEmitter {
     await this.launcher.stop();
     // XXX Should we also wait for all current connections to be closed?
     this.httpServer.close();
+  }
+
+  public meteorListen(webApp: any, options: MeteorListenOptions = {}) {
+    const port = +(process.env.PORT || 0);
+    process.env.PORT = '0';
+    webApp.onListening(() => {
+      this.startEngine(webApp.httpServer.address(), {...options, port});
+    });
   }
 
   public async hapiListener(options: HapiListenOptions) {
@@ -142,5 +126,29 @@ export class ApolloEngine extends EventEmitter {
     }
     httpServer.on('newListener', callListeningImmediately);
     return httpServer;
+  }
+
+  private async startEngine(innerAddress: {port: number, address: string},
+                            options: CoreListenOptions) {
+    const defaults = {
+      frontendHost: options.host,
+      frontendPort: options.port,
+      graphqlPaths: options.graphqlPaths || ['/graphql'],
+      originUrl: `http://${joinHostPort(innerAddress.address, innerAddress.port)}`,
+      // Support multiple graphqlPaths.
+      useFrontendPathForDefaultOrigin: true,
+    };
+
+    const startOptions = Object.assign({}, options.startOptions);
+    startOptions.extraArgs = [
+      ...(startOptions.extraArgs || []),
+      `-defaults=${JSON.stringify(defaults)}`,
+    ];
+
+    try {
+      this.engineListeningAddress = await this.launcher.start(startOptions);
+    } catch (error) {
+      this.emit('error', error);
+    }
   }
 }
