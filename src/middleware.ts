@@ -64,6 +64,7 @@ export function makeKoaMiddleware(params: MiddlewareParams) {
       return next();
     else
       return new Promise((resolve, reject) => {
+        ctx.set('host', ctx.req.headers.host || '');
         ctx.req.pipe(
           request(params.uri + ctx.originalUrl, (error, response, body) => {
             if (!!error || !response || !response.statusCode) {
