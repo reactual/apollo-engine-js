@@ -193,6 +193,7 @@ export class ApolloEngine extends EventEmitter {
     try {
       this.engineListeningAddress = await this.launcher.start(startOptions);
     } catch (error) {
+      console.error('XXX about to emit the error', error);
       this.emit('error', error);
     }
   }
