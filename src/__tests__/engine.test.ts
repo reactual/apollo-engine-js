@@ -27,6 +27,7 @@ import {
   verifyEndpointFailure,
   verifyEndpointBatch,
 } from './schema';
+import { processIsRunning, devNull } from './util';
 
 import { ApolloEngine } from '../engine';
 
@@ -382,5 +383,60 @@ describe('hapi integration', () => {
       false,
       'hapi',
     );
+  });
+});
+
+describe('launch failure', () => {
+  let engine: ApolloEngine | null = null;
+  let httpServer: http.Server | null = null;
+  beforeEach(() => {
+    engine = null;
+    httpServer = null;
+  });
+  afterEach(async () => {
+    if (engine !== null) {
+      const child = engine['launcher']['child'];
+      if (child) {
+        await engine.stop();
+        expect(processIsRunning(child.pid)).toBe(false);
+      }
+      engine = null;
+    }
+
+    if (httpServer) {
+      httpServer.close();
+    }
+  });
+  test('emits error on invalid config', async () => {
+    engine = new ApolloEngine({
+      apiKey: 'faked',
+      logging: {
+        level: 'INVALID',
+      },
+      reporting: {
+        disabled: true,
+      },
+    });
+
+    const start = +new Date();
+    httpServer = http.createServer();
+    const p = new Promise((resolve, reject) => {
+      // Help TS understand that these variables are still set.
+      httpServer = httpServer!;
+      engine = engine!;
+      // We expect to get an error, so that's why we're *resolving* with it.
+      engine!.once('error', err => {
+        resolve(err.message);
+      });
+      engine!.listen(
+        { httpServer, port: 0, startOptions: { proxyStderrStream: devNull() } },
+        () => reject(new Error('Engine should not listen successfully')),
+      );
+    });
+    await expect(p).resolves.toMatch(
+      /Engine crashed due to invalid configuration/,
+    );
+    const end = +new Date();
+    expect(end - start).toBeLessThan(5000);
   });
 });
