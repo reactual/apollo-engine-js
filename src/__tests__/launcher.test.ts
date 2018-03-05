@@ -7,16 +7,9 @@ import { writeFileSync, unlinkSync, renameSync, readFileSync } from 'fs';
 import { Writable } from 'stream';
 
 import { schema, rootValue, verifyEndpointSuccess } from './schema';
+import { processIsRunning, devNull } from './util';
 
 import { ApolloEngineLauncher } from '../launcher';
-
-function devNull() {
-  return new Writable({
-    write: (chunk, encoding, cb) => {
-      cb();
-    },
-  });
-}
 
 function basicConfig(port: number) {
   return {
@@ -42,14 +35,6 @@ function basicConfig(port: number) {
       },
     ],
   };
-}
-
-function processIsRunning(pid: number) {
-  try {
-    return process.kill(pid, 0);
-  } catch (e) {
-    return e.code === 'EPERM';
-  }
 }
 
 describe('ApolloEngineLauncher', () => {

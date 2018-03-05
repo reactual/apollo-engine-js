@@ -86,8 +86,8 @@ export class ApolloEngine extends EventEmitter {
     this.httpServer.listen({ port: 0, host: options.innerHost }, () => {
       // The Node server is now listening, so we can figure out what its address
       // is!
-      this.startEngine(httpServer.address(), options).then(() =>
-        listenCallback(),
+      this.startEngine(httpServer.address(), options).then(
+        () => listenCallback && listenCallback(),
       );
     });
   }
