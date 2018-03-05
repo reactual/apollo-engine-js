@@ -86,9 +86,16 @@ export class ApolloEngine extends EventEmitter {
     this.httpServer.listen({ port: 0, host: options.innerHost }, () => {
       // The Node server is now listening, so we can figure out what its address
       // is!
+      //
+      // We run listenCallback and this.emit('error') outside of this Promise's
+      // then/catch, because we want to avoid making `listen` a Promisey API
+      // (because we want it to work like httpServer.listen), and doing stuff
+      // that can throw in a then/catch means that we would need somebody to be
+      // catch-ing the Promise itself.
       this.startEngine(httpServer.address(), options)
-        .then(() => listenCallback && listenCallback())
+        .then(() => listenCallback && process.nextTick(listenCallback))
         .catch(error => {
+          // Don't emit error inside this catch block, because if there are no error handlers that would cause this Promise (
           process.nextTick(() => this.emit('error', error));
         });
     });
