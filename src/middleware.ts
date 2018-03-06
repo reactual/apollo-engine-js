@@ -58,15 +58,15 @@ export function makeConnectMiddleware(params: MiddlewareParams) {
 
 export function makeKoaMiddleware(params: MiddlewareParams) {
   return function(ctx: Context, next: () => Promise<any>) {
-    if (!params.uri || ctx.path !== params.endpoint) return next();
-    else if (ctx.req.headers['x-engine-from'] === params.psk) return next();
+		if (!params.uri || ctx.path !== params.endpoint) return next();
+		else if (ctx.req.headers['x-engine-from'] === params.psk) return next();
     else if (ctx.req.method !== 'GET' && ctx.req.method !== 'POST')
       return next();
     else
       return new Promise((resolve, reject) => {
-        ctx.set('host', ctx.req.headers.host || '');
         ctx.req.pipe(
-          request(params.uri + ctx.originalUrl, (error, response, body) => {
+					// Pass host header into request params
+          request({uri: params.uri + ctx.originalUrl, headers: ctx.req.headers}, (error, response, body) => {
             if (!!error || !response || !response.statusCode) {
               reject(new Error('Missing response from Engine proxy.'));
             } else {

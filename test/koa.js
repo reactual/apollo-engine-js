@@ -18,6 +18,16 @@ const { testEngine } = require('./test');
 describe('koa middleware', () => {
   let app;
 
+  const echoRequestHeadersMiddleware = async (ctx, next) => {
+    const {req, res} = ctx;
+    const injectedHeader = ctx.req.headers['x-echo-header']
+    if (injectedHeader) {
+      const reqHeaders = req.headers;
+      ctx.set('x-echoed-request-headers', JSON.stringify(reqHeaders));
+    }
+    await next();
+  };
+
   function gqlServer() {
     let graphqlHandler = graphqlKoa({
       schema,
@@ -27,6 +37,7 @@ describe('koa middleware', () => {
     const router = new koaRouter();
     router.post('/graphql', koaBody(), graphqlHandler);
     router.get('/graphql', graphqlHandler);
+    app.use(echoRequestHeadersMiddleware);
     app.use(router.routes());
     app.use(router.allowedMethods());
     return app.listen(0);
@@ -106,5 +117,27 @@ describe('koa middleware', () => {
         );
       });
     });
+
+    it.only('passes Host header through Koa middleware', () => {
+      var testKoaHeaders = {
+        'Host': 'example.com',
+        'x-echo-header': 'xyz'
+      }
+      return new Promise (resolve => {
+        request.post(
+          {
+            url,
+            headers: testKoaHeaders,
+            json: true,
+            body: { query: '{hello}' },
+          },
+          (err, response, body) => {
+            const echoedReq = JSON.parse(response.headers['x-echoed-request-headers']);
+            assert.strictEqual( echoedReq.host, testKoaHeaders['Host'])
+            resolve()
+          }
+        )
+      })
+    })
   });
 });

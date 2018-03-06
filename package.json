@@ -10,7 +10,7 @@
     "watch": "tsc -w",
     "prepare": "npm run clean && npm run compile",
     "pretest": "tsc",
-    "test": "cross-env NODE_ENV=test mocha",
+    "test": "cross-env NODE_ENV=test mocha --timeout 15000",
     "test-verify-no-extraneous-output": "test $(NODE_ENV=test mocha --reporter min 2>&1 | wc -l) -eq 3",
     "pretravis": "npm run compile",
     "travis": "NODE_ENV=test istanbul cover _mocha -- --timeout 5000 --full-trace ./test/*.js",
