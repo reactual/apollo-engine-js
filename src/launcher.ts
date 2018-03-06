@@ -101,7 +101,7 @@ export class ApolloEngineLauncher extends EventEmitter {
         if (listeningAddress !== '') {
           // Notify that proxy has started. The object is of the form `{ip:
           // "127.0.0.1", port: 1234}`.
-          const la = JSON.parse(listeningAddress);
+          const la: ListeningAddress = JSON.parse(listeningAddress);
           // Convert IPs which mean "any address" (IPv4 or IPv6) into localhost
           // corresponding loopback ip. Note that the url field we're setting is
           // primarily for consumption by our test suite. If this heuristic is
@@ -164,7 +164,7 @@ export class ApolloEngineLauncher extends EventEmitter {
         }, options.startupTimeout || 5000);
       }
 
-      this.on('start', listeningAddress => {
+      this.on('start', (listeningAddress: ListeningAddress) => {
         clearTimeout(cancelTimeout);
         this.removeListener('error', startupErrorHandler);
         resolve(listeningAddress);
