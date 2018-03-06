@@ -302,7 +302,11 @@ describe('launch failure', () => {
         resolve(err.message);
       });
       engine!.listen(
-        { httpServer, port: 0, startOptions: { proxyStderrStream: devNull() } },
+        {
+          httpServer,
+          port: 0,
+          launcherOptions: { proxyStderrStream: devNull() },
+        },
         () => reject(new Error('Engine should not listen successfully')),
       );
     });

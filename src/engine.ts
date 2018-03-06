@@ -7,13 +7,13 @@ import { Server as ConnectApp } from 'connect';
 import * as KoaApp from 'koa';
 import { Server as RestifyServer } from 'restify';
 
-import { EngineConfig, StartOptions, ListeningAddress } from './types';
+import { EngineConfig, LauncherOptions, ListeningAddress } from './types';
 import { ApolloEngineLauncher, joinHostPort } from './launcher';
 
 export interface MeteorListenOptions {
   graphqlPaths?: string[]; // default: ['/graphql']
   innerHost?: string; // default: '127.0.0.1'. This is where Node listens.
-  startOptions?: StartOptions;
+  launcherOptions?: LauncherOptions;
 }
 
 export interface CoreListenOptions extends MeteorListenOptions {
@@ -222,12 +222,12 @@ export class ApolloEngine extends EventEmitter {
       useFrontendPathForDefaultOrigin: true,
     };
 
-    const startOptions = Object.assign({}, options.startOptions);
-    startOptions.extraArgs = [
-      ...(startOptions.extraArgs || []),
+    const launcherOptions = Object.assign({}, options.launcherOptions);
+    launcherOptions.extraArgs = [
+      ...(launcherOptions.extraArgs || []),
       `-defaults=${JSON.stringify(defaults)}`,
     ];
 
-    this.engineListeningAddress = await this.launcher.start(startOptions);
+    this.engineListeningAddress = await this.launcher.start(launcherOptions);
   }
 }

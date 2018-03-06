@@ -1,7 +1,7 @@
 import { EventEmitter } from 'events';
 import { ChildProcess, spawn } from 'child_process';
 
-import { EngineConfig, StartOptions, ListeningAddress } from './types';
+import { EngineConfig, LauncherOptions, ListeningAddress } from './types';
 
 // ApolloEngineLauncher knows how to run an engineproxy binary, wait for it to
 // be listening, learn on what address it is listening, and restart it when it
@@ -41,14 +41,14 @@ export class ApolloEngineLauncher extends EventEmitter {
     }
   }
 
-  // start takes the same options as the startOptions option to
+  // start takes the same options as the launcherOptions option to
   // `ApolloEngine.listen`. It runs engineproxy, returning a Promise that
   // resolves once engineproxy is listening, or rejects if startup fails
   // (including due to a timeout). It restarts engineproxy if it exits for any
   // reason other than invalid config (emitting 'restarting' as it does so).
   // The Promise resolves to a structure telling on what port engineproxy is
   // listening.
-  public start(options: StartOptions = {}): Promise<ListeningAddress> {
+  public start(options: LauncherOptions = {}): Promise<ListeningAddress> {
     if (this.child) {
       throw new Error(
         'Only call start() on an ApolloEngineLauncher object once',
