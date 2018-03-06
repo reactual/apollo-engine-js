@@ -293,6 +293,29 @@ Object.keys(frameworks).forEach(frameworkName => {
   });
 });
 
+test('can pass a string as a port', async () => {
+  const httpServer = http.createServer();
+  const engine = new ApolloEngine({
+    apiKey: 'faked',
+    logging: {
+      level: 'WARN',
+      destination: 'STDERR',
+    },
+    reporting: {
+      disabled: true,
+    },
+  });
+  try {
+    const p = new Promise(resolve =>
+      engine.listen({ port: '0', httpServer }, resolve),
+    );
+    await p;
+  } finally {
+    await engine.stop();
+    httpServer.close();
+  }
+});
+
 // hapi requires its own API since it doesn't directly give you an http.Server.
 describe('hapi integration', () => {
   let server: hapi.Server;

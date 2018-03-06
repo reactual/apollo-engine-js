@@ -15,7 +15,7 @@ export interface MeteorListenOptions {
 }
 
 export interface CoreListenOptions extends MeteorListenOptions {
-  port: number;
+  port: number | string;
   host?: string; // default: ''. This is where engineproxy listens.
 }
 
@@ -180,9 +180,18 @@ export class ApolloEngine extends EventEmitter {
     innerAddress: { port: number; address: string },
     options: CoreListenOptions,
   ) {
+    let port: number;
+    if (typeof options.port === 'string') {
+      port = parseInt(options.port, 10);
+      if (isNaN(port)) {
+        throw new Error(`port must be an integer, not '${options.port}'`);
+      }
+    } else {
+      port = options.port;
+    }
     const defaults = {
       frontendHost: options.host,
-      frontendPort: options.port,
+      frontendPort: +options.port,
       graphqlPaths: options.graphqlPaths || ['/graphql'],
       originUrl: `http://${joinHostPort(
         innerAddress.address,
