@@ -1,12 +1,14 @@
+import { ListenOptions as NetListenOptions } from 'net';
+import { EventEmitter } from 'events';
+import { Server as HttpServer } from 'http';
+
 import { Application as ExpressApp } from 'express';
 import { Server as ConnectApp } from 'connect';
-import { Server as HttpServer } from 'http';
-import { ListenOptions as NetListenOptions } from 'net';
 import * as KoaApp from 'koa';
+import { Server as RestifyServer } from 'restify';
 
 import { EngineConfig, StartOptions, ListeningAddress } from './types';
 import { ApolloEngineLauncher, joinHostPort } from './launcher';
-import { EventEmitter } from 'events';
 
 export interface MeteorListenOptions {
   graphqlPaths?: string[]; // default: ['/graphql']
@@ -24,6 +26,7 @@ export interface ListenOptions extends CoreListenOptions {
   expressApp?: ExpressApp;
   connectApp?: ConnectApp;
   koaApp?: KoaApp;
+  restifyServer?: RestifyServer;
 }
 
 export interface HapiListenOptions extends CoreListenOptions {}
@@ -66,15 +69,19 @@ export class ApolloEngine extends EventEmitter {
       httpServer = new HttpServer(options.koaApp.callback());
       appsProvided++;
     }
+    if (options.restifyServer) {
+      httpServer = options.restifyServer.server;
+      appsProvided++;
+    }
 
     if (appsProvided === 0) {
       throw new Error(
-        'Must provide "httpServer", "expressApp", "connectApp", or "koaApp"',
+        'Must provide "httpServer", "expressApp", "connectApp", "koaApp", or "restifyServer"',
       );
     }
     if (appsProvided > 1) {
       throw new Error(
-        'Must only provide one of "httpServer", "expressApp", "connectApp", and "koaApp"',
+        'Must only provide one of "httpServer", "expressApp", "connectApp", "koaApp", and "restifyServer"',
       );
     }
     this.httpServer = httpServer!;
@@ -83,6 +90,7 @@ export class ApolloEngine extends EventEmitter {
     // same situation as express/koa/connect's listen() method, so that's OK; if
     // the user wants to listen for that error they can spend one line turning
     // their app into an http.Server and pass that in instead.
+    // (And with restify, they have access to restifyServer.server themselves.)
     this.httpServer.listen({ port: 0, host: options.innerHost }, () => {
       // The Node server is now listening, so we can figure out what its address
       // is!
