@@ -19,8 +19,8 @@ describe('koa middleware', () => {
   let app;
 
   const echoRequestHeadersMiddleware = async (ctx, next) => {
-    const {req, res} = ctx;
-    const injectedHeader = ctx.req.headers['x-echo-header']
+    const { req, res } = ctx;
+    const injectedHeader = ctx.req.headers['x-echo-header'];
     if (injectedHeader) {
       const reqHeaders = req.headers;
       ctx.set('x-echoed-request-headers', JSON.stringify(reqHeaders));
@@ -120,10 +120,10 @@ describe('koa middleware', () => {
 
     it.only('passes Host header through Koa middleware', () => {
       var testKoaHeaders = {
-        'Host': 'example.com',
-        'x-echo-header': 'xyz'
-      }
-      return new Promise (resolve => {
+        Host: 'example.com',
+        'x-echo-header': 'xyz',
+      };
+      return new Promise(resolve => {
         request.post(
           {
             url,
@@ -132,12 +132,14 @@ describe('koa middleware', () => {
             body: { query: '{hello}' },
           },
           (err, response, body) => {
-            const echoedReq = JSON.parse(response.headers['x-echoed-request-headers']);
-            assert.strictEqual( echoedReq.host, testKoaHeaders['Host'])
-            resolve()
-          }
-        )
-      })
-    })
+            const echoedReq = JSON.parse(
+              response.headers['x-echoed-request-headers'],
+            );
+            assert.strictEqual(echoedReq.host, testKoaHeaders['Host']);
+            resolve();
+          },
+        );
+      });
+    });
   });
 });

@@ -58,24 +58,27 @@ export function makeConnectMiddleware(params: MiddlewareParams) {
 
 export function makeKoaMiddleware(params: MiddlewareParams) {
   return function(ctx: Context, next: () => Promise<any>) {
-		if (!params.uri || ctx.path !== params.endpoint) return next();
-		else if (ctx.req.headers['x-engine-from'] === params.psk) return next();
+    if (!params.uri || ctx.path !== params.endpoint) return next();
+    else if (ctx.req.headers['x-engine-from'] === params.psk) return next();
     else if (ctx.req.method !== 'GET' && ctx.req.method !== 'POST')
       return next();
     else
       return new Promise((resolve, reject) => {
         ctx.req.pipe(
-					// Pass host header into request params
-          request({uri: params.uri + ctx.originalUrl, headers: ctx.req.headers}, (error, response, body) => {
-            if (!!error || !response || !response.statusCode) {
-              reject(new Error('Missing response from Engine proxy.'));
-            } else {
-              ctx.response.status = response.statusCode;
-              ctx.response.set(JSON.parse(JSON.stringify(response.headers)));
-              ctx.response.body = body;
-              resolve();
-            }
-          }),
+          // Pass host header into request params
+          request(
+            { uri: params.uri + ctx.originalUrl, headers: ctx.req.headers },
+            (error, response, body) => {
+              if (!!error || !response || !response.statusCode) {
+                reject(new Error('Missing response from Engine proxy.'));
+              } else {
+                ctx.response.status = response.statusCode;
+                ctx.response.set(JSON.parse(JSON.stringify(response.headers)));
+                ctx.response.body = body;
+                resolve();
+              }
+            },
+          ),
         );
       });
   };
