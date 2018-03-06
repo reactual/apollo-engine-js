@@ -95,7 +95,6 @@ export class ApolloEngine extends EventEmitter {
       this.startEngine(httpServer.address(), options)
         .then(() => listenCallback && process.nextTick(listenCallback))
         .catch(error => {
-          // Don't emit error inside this catch block, because if there are no error handlers that would cause this Promise (
           process.nextTick(() => this.emit('error', error));
         });
     });
