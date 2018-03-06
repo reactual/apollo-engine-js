@@ -31,6 +31,8 @@ export interface ListenOptions extends CoreListenOptions {
 
 export interface HapiListenOptions extends CoreListenOptions {}
 
+// ApolloEngine is the main API used to run engineproxy. It integrates with your
+// Node web framework of choice.
 export class ApolloEngine extends EventEmitter {
   // Primarily useful if you're having engine listen on 0 for tests.
   public engineListeningAddress: ListeningAddress;
@@ -39,12 +41,18 @@ export class ApolloEngine extends EventEmitter {
   private launcher: ApolloEngineLauncher;
   private httpServer: HttpServer;
 
+  // The constructor takes the underlying engineproxy config file. All options
+  // specific to the Node API are passed to `listen` (or other entry point) to
+  // maintain a strict separate between Node options and engineproxy config.
   public constructor(config: EngineConfig) {
     super();
     this.config = config;
     this.launcher = new ApolloEngineLauncher(config);
   }
 
+  // listen tells your app to listen on an ephemeral port, then starts an
+  // engineproxy listening on the specified port configured with your app's
+  // ephemeral port as an origin.
   public listen(options: ListenOptions, listenCallback?: () => void) {
     if (options.port === undefined) {
       throw new Error(
@@ -108,12 +116,15 @@ export class ApolloEngine extends EventEmitter {
     });
   }
 
+  // Stops Engine and your app.
   public async stop() {
     await this.launcher.stop();
     // XXX Should we also wait for all current connections to be closed?
     this.httpServer.close();
   }
 
+  // Call this from the top level of a Meteor server as
+  // `engine.meteorListen(WebApp)` to hook in to the built-in connect server.
   public meteorListen(webApp: any, options: MeteorListenOptions = {}) {
     const makeListenPolyfill = (httpServer: HttpServer) => (
       listenOptions: NetListenOptions,
@@ -161,6 +172,8 @@ export class ApolloEngine extends EventEmitter {
     };
   }
 
+  // Pass this as `listener` to hapi.Server's constructor along with
+  // `autoListen: false` to hopefully integrate with hapi.
   public async hapiListener(options: HapiListenOptions) {
     const httpServer = new HttpServer();
     const p = new Promise((resolve, reject) => {

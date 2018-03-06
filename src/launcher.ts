@@ -3,11 +3,19 @@ import { ChildProcess, spawn } from 'child_process';
 
 import { EngineConfig, StartOptions, ListeningAddress } from './types';
 
+// ApolloEngineLauncher knows how to run an engineproxy binary, wait for it to
+// be listening, learn on what address it is listening, and restart it when it
+// crashes. It doesn't know how to automatically connect it to a GraphQL server
+// in this process --- that's what ApolloEngine is for. It's used to implement
+// ApolloEngine, and it's an alternative to the Docker container for folks who
+// want to put engineproxy in front of a non-Node GraphQL server.
 export class ApolloEngineLauncher extends EventEmitter {
   private config: EngineConfig;
   private binary: string;
   private child: ChildProcess | null;
 
+  // The constructor takes the same argument as ApolloEngine: the underlying
+  // engineproxy config file.
   public constructor(config: EngineConfig) {
     super();
 
@@ -33,6 +41,13 @@ export class ApolloEngineLauncher extends EventEmitter {
     }
   }
 
+  // start takes the same options as the startOptions option to
+  // `ApolloEngine.listen`. It runs engineproxy, returning a Promise that
+  // resolves once engineproxy is listening, or rejects if startup fails
+  // (including due to a timeout). It restarts engineproxy if it exits for any
+  // reason other than invalid config (emitting 'restarting' as it does so).
+  // The Promise resolves to a structure telling on what port engineproxy is
+  // listening.
   public start(options: StartOptions = {}): Promise<ListeningAddress> {
     if (this.child) {
       throw new Error(
@@ -68,12 +83,14 @@ export class ApolloEngineLauncher extends EventEmitter {
       const args: string[] = ['-listening-reporter-fd=3'];
       const env = Object.assign({}, process.env);
       if (typeof this.config === 'string') {
+        // Load config from a file. engineproxy will watch the file for changes.
         args.push(`-config=${this.config}`);
       } else {
         args.push(`-config=env`);
         env.ENGINE_CONFIG = JSON.stringify(this.config);
       }
 
+      // Add extra arguments; used by ApolloEngine and by tests.
       if (options.extraArgs) {
         options.extraArgs.forEach(a => args.push(a));
       }
@@ -170,6 +187,9 @@ export class ApolloEngineLauncher extends EventEmitter {
         resolve(listeningAddress);
       });
 
+      // Errors during startup turn into rejections of the 'start'
+      // Promise. Later errors are just emitted as 'error' events (as are
+      // startup errors).
       startupErrorHandler = (error: Error) => {
         clearTimeout(cancelTimeout);
         this.child = null;
@@ -179,6 +199,7 @@ export class ApolloEngineLauncher extends EventEmitter {
     });
   }
 
+  // Stops the process. The returned Promise resolves once the child has exited.
   public stop(): Promise<void> {
     if (this.child === null) {
       throw new Error('No engine instance running!');
