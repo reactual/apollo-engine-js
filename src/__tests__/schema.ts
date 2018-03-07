@@ -1,15 +1,14 @@
-const { buildSchema } = require('graphql');
-const request = require('request');
-const { assert } = require('chai');
+import { buildSchema, GraphQLSchema } from 'graphql';
+import * as request from 'request';
 
-exports.schema = buildSchema(`
+export const schema = buildSchema(`
   type Query {
     hello: String @cacheControl(maxAge: 30)
     errorTrigger: String
   }
 `);
 
-exports.rootValue = {
+export const rootValue = {
   hello: () => {
     return 'Hello World';
   },
@@ -18,7 +17,7 @@ exports.rootValue = {
   },
 };
 
-exports.verifyEndpointSuccess = (url, hasTracing) => {
+export function verifyEndpointSuccess(url: string, hasTracing: boolean) {
   return new Promise(resolve => {
     request.post(
       {
@@ -27,25 +26,24 @@ exports.verifyEndpointSuccess = (url, hasTracing) => {
         body: { query: '{ hello }' },
       },
       (err, response, body) => {
-        assert.strictEqual('Hello World', body['data']['hello']);
+        expect(err).toBe(null);
+        expect(body['data']['hello']).toBe('Hello World');
         if (hasTracing) {
-          assert.notEqual(
-            undefined,
+          expect(
             body['extensions'] && body['extensions']['tracing'],
-          );
+          ).toBeDefined();
         } else {
-          assert.strictEqual(
-            undefined,
+          expect(
             body['extensions'] && body['extensions']['tracing'],
-          );
+          ).toBeUndefined();
         }
         resolve(body);
       },
     );
   });
-};
+}
 
-exports.verifyEndpointBatch = (url, hasTracing) => {
+export function verifyEndpointBatch(url: string, hasTracing: boolean) {
   return new Promise(resolve => {
     request.post(
       {
@@ -53,21 +51,20 @@ exports.verifyEndpointBatch = (url, hasTracing) => {
         json: true,
         body: [{ query: '{ hello }' }, { query: '{ hello }' }],
       },
-      (err, response, body) => {
-        assert.strictEqual(2, body.length);
+      (err, response, bodies) => {
+        expect(err).toBe(null);
+        expect(bodies.length).toBe(2);
 
-        body.forEach(body => {
-          assert.strictEqual('Hello World', body['data']['hello']);
+        bodies.forEach((body: any) => {
+          expect(body['data']['hello']).toBe('Hello World');
           if (hasTracing) {
-            assert.notEqual(
-              undefined,
+            expect(
               body['extensions'] && body['extensions']['tracing'],
-            );
+            ).toBeDefined();
           } else {
-            assert.strictEqual(
-              undefined,
+            expect(
               body['extensions'] && body['extensions']['tracing'],
-            );
+            ).toBeUndefined();
           }
         });
 
@@ -75,9 +72,9 @@ exports.verifyEndpointBatch = (url, hasTracing) => {
       },
     );
   });
-};
+}
 
-exports.verifyEndpointFailure = url => {
+export function verifyEndpointFailure(url: string) {
   return new Promise(resolve => {
     request.post(
       {
@@ -88,21 +85,20 @@ exports.verifyEndpointFailure = url => {
       (err, response, body) => {
         if (response.statusCode === 200) {
           // Proxy responds with an error-ed 200:
-          assert.strictEqual(
+          expect(response.body['errors'][0]['message']).toBe(
             'Cannot query field "validButDoesNotComplyToSchema" on type "Query".',
-            response.body['errors'][0]['message'],
           );
         } else {
           // Express responds with a 400
-          assert.strictEqual(400, response.statusCode);
+          expect(response.statusCode).toBe(400);
         }
         resolve();
       },
     );
   });
-};
+}
 
-exports.verifyEndpointError = url => {
+export function verifyEndpointError(url: string) {
   return new Promise(resolve => {
     request.post(
       {
@@ -111,15 +107,16 @@ exports.verifyEndpointError = url => {
         body: { query: '{ errorTrigger }' },
       },
       (err, response, body) => {
-        assert.strictEqual(200, response.statusCode);
-        assert.strictEqual('Kaboom', body['errors'][0]['message']);
+        expect(err).toBe(null);
+        expect(response.statusCode).toBe(200);
+        expect(body['errors'][0]['message']).toBe('Kaboom');
         resolve();
       },
     );
   });
-};
+}
 
-exports.verifyEndpointGet = (url, hasTracing) => {
+export function verifyEndpointGet(url: string, hasTracing: boolean) {
   return new Promise(resolve => {
     let query = '{ hello }';
     request.get(
@@ -128,21 +125,20 @@ exports.verifyEndpointGet = (url, hasTracing) => {
         json: true,
       },
       (err, response, body) => {
-        assert.strictEqual(200, response.statusCode);
-        assert.strictEqual('Hello World', body['data']['hello']);
+        expect(err).toBe(null);
+        expect(response.statusCode).toBe(200);
+        expect(body['data']['hello']).toBe('Hello World');
         if (hasTracing) {
-          assert.notEqual(
-            undefined,
+          expect(
             body['extensions'] && body['extensions']['tracing'],
-          );
+          ).toBeDefined();
         } else {
-          assert.strictEqual(
-            undefined,
+          expect(
             body['extensions'] && body['extensions']['tracing'],
-          );
+          ).toBeUndefined();
         }
         resolve();
       },
     );
   });
-};
+}

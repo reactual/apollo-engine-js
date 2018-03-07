@@ -1,6 +1,6 @@
 {
   "name": "apollo-engine",
-  "version": "0.9.1",
+  "version": "1.0.1",
   "description": "Sideload Apollo Engine in front of your graphql server",
   "main": "./lib/index.js",
   "types": "./lib/index.d.ts",
@@ -9,11 +9,9 @@
     "compile": "tsc",
     "watch": "tsc -w",
     "prepare": "npm run clean && npm run compile",
-    "pretest": "tsc",
-    "test": "cross-env NODE_ENV=test mocha",
-    "test-verify-no-extraneous-output": "test $(NODE_ENV=test mocha --reporter min 2>&1 | wc -l) -eq 3",
+    "test": "jest --verbose",
     "pretravis": "npm run compile",
-    "travis": "NODE_ENV=test istanbul cover _mocha -- --timeout 5000 --full-trace ./test/*.js",
+    "travis": "jest --verbose --coverage",
     "lint": "prettier -l '{src,test}/**/*.{ts,js}' && tslint -p tsconfig.json '{src,test}/**/*.ts'",
     "lint-fix": "prettier --write '{src,test}/**/*.{ts,js}' && tslint --fix -p tsconfig.json '{src,test}/**/*.ts'"
   },
@@ -24,50 +22,69 @@
     "node": ">=4.0",
     "npm": ">=4.0"
   },
-  "dependencies": {
-    "request": "^2.81.0"
-  },
   "optionalDependencies": {
-    "apollo-engine-binary-darwin": "0.2018.2-90-g65206681c",
-    "apollo-engine-binary-linux": "0.2018.2-90-g65206681c",
-    "apollo-engine-binary-windows": "0.2018.2-90-g65206681c"
+    "apollo-engine-binary-darwin": "0.2018.2-111-gb13195fb0",
+    "apollo-engine-binary-linux": "0.2018.2-111-gb13195fb0",
+    "apollo-engine-binary-windows": "0.2018.2-111-gb13195fb0"
   },
   "devDependencies": {
     "@types/express": "^4.0.36",
     "@types/graphql": "^0.9.2",
-    "@types/hapi": "^16.1.9",
+    "@types/hapi": "^17.0.4",
+    "@types/jest": "^22.1.4",
     "@types/koa": "^2.0.39",
+    "@types/koa-bodyparser": "^4.2.0",
+    "@types/koa-router": "^7.0.27",
+    "@types/micro": "^7.3.1",
+    "@types/microrouter": "^2.2.1",
     "@types/node": "^8.0.14",
+    "@types/qs": "^6.5.1",
     "@types/request": "^2.0.0",
+    "@types/restify": "^5.0.7",
+    "@types/sinon": "^4.3.0",
+    "@types/tmp": "0.0.33",
     "apollo-server-express": "^1.3.2",
-    "apollo-server-hapi": "~1.2.0",
+    "apollo-server-hapi": "^1.3.2",
     "apollo-server-koa": "^1.3.2",
     "apollo-server-micro": "^1.3.2",
+    "apollo-server-restify": "^1.3.2",
     "body-parser": "^1.18.1",
-    "chai": "^4.1.2",
     "connect": "^3.6.5",
     "connect-query": "^1.0.0",
-    "cross-env": "^5.1.3",
     "express": "^4.15.4",
     "graphql": "^0.11.3",
-    "hapi": "^16.6.0",
-    "is-running": "^2.1.0",
-    "istanbul": "1.1.0-alpha.1",
+    "hapi": "^17.2.1",
+    "jest": "^22.4.2",
     "koa": "^2.3.0",
     "koa-bodyparser": "^4.2.0",
     "koa-router": "^7.2.1",
     "micro": "^9.0.1",
     "microrouter": "^3.0.0",
-    "mocha": "^3.5.3",
-    "prettier": "^1.11.1",
-    "request-promise-native": "^1.0.5",
+    "prettier": "^1.11.0",
+    "request": "^2.81.0",
+    "restify": "^6.3.4",
     "sinon": "^4.4.2",
     "tmp": "0.0.33",
+    "ts-jest": "^22.4.1",
     "tslint": "^5.8.0",
     "typescript": "^2.4.1"
   },
   "prettier": {
     "trailingComma": "all",
     "singleQuote": true
+  },
+  "jest": {
+    "transform": {
+      "^.+\\.tsx?$": "ts-jest"
+    },
+    "testRegex": "src/__tests__/.*\\.test\\.(jsx?|tsx?)$",
+    "moduleFileExtensions": [
+      "ts",
+      "tsx",
+      "js",
+      "jsx",
+      "json",
+      "node"
+    ]
   }
 }
